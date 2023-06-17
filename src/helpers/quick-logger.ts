@@ -3,7 +3,7 @@ import "winston-daily-rotate-file"
 
 const { createLogger, format, transports } = winston
 
-const logger = createLogger({
+const logger: any = createLogger({
     level: "info",
     format: format.combine(
         format.colorize(),
@@ -16,9 +16,9 @@ const logger = createLogger({
     ),
     transports: [
         new transports.File({ filename: './logfile/errorlogfile.log', level: 'error' }),
-        new transports.File({ filename: './logfile/succeslogfile.log',level: 'info' }),
+        new transports.File({ filename: './logfile/succeslogfile.log', level: 'info' }),
         new transports.File({ filename: './logfile/logfile.log' }),
-        new transports.DailyRotateFile({filename:`./logfile/dailylogfile/logfile.log`,datePattern: "YYYY-MM-DD-HH"})
+        new transports.DailyRotateFile({ filename: `./logfile/dailylogfile/logfile.log`, datePattern: "YYYY-MM-DD-HH" })
     ]
 })
 
