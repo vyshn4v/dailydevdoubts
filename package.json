@@ -1,0 +1,40 @@
+{
+  "name": "daily_dev_doubts",
+  "version": "1.0.0",
+  "description": "a app like stackoverflow but it have additional feature like chat,etc..",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon ./src/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vyshn4v/dailydevdoubts.git"
+  },
+  "keywords": [
+    "question and answer",
+    "stack overflow",
+    "chat"
+  ],
+  "author": "vyshnav p c",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vyshn4v/dailydevdoubts/issues"
+  },
+  "homepage": "https://github.com/vyshn4v/dailydevdoubts#readme",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.2.0",
+    "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
+    "express-joi-validation": "^5.0.1",
+    "joi": "^17.9.2",
+    "mongoose": "^7.3.0",
+    "otp-generator": "^4.0.1",
+    "twilio": "^4.12.0",
+    "winston": "^3.9.0",
+    "winston-daily-rotate-file": "^4.7.1"
+  }
+}
