@@ -6,7 +6,9 @@ const NODE_ENV: string = String(process.env.NODE_ENV)
 const TWILIO_ACCOUNT_SID: string = String(process.env.TWILIO_ACCOUNT_SID)
 const TWILIO_AUTH_TOKEN: string = String(process.env.TWILIO_AUTH_TOKEN)
 const TWILIO_PHONE_NUMBER: string = String(process.env.TWILIO_PHONE_NUMBER)
+const TWILIO_SERVICE_SID: string = String(process.env.TWILIO_SERVICE_SID)
 const JWT_SECRET_KEY: string = String(process.env.JWT_SECRET_KEY)
+const GOOGLE_CLIENT_ID: string = String(process.env.GOOGLE_CLIENT_ID)
 export {
     BCRYPT_SALT_ROUND,
     MONGODB_URL,
@@ -14,5 +16,7 @@ export {
     TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN,
     TWILIO_PHONE_NUMBER,
-    JWT_SECRET_KEY
+    JWT_SECRET_KEY,
+    TWILIO_SERVICE_SID,
+    GOOGLE_CLIENT_ID
 }

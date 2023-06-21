@@ -1,20 +1,14 @@
 import Twilio from "twilio";
-import generateMessageTemplate from "./generateMessageTemplate";
-import otpGenerator from 'otp-generator'
-import { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } from '../config/envVariables'
-import { TwilioMessage } from "../types/twilioMessage";
+import { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER, TWILIO_SERVICE_SID } from '../config/envVariables'
 const client = Twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
-export default function sendMessageUsingTwilio(to: number | undefined, template: string) {
+export function sendOtpUsingTwilio(to: number | undefined, template: string) {
     return new Promise((resolve, reject) => {
-        const otp = otpGenerator.generate(6, { digits: true, lowerCaseAlphabets: false, upperCaseAlphabets: false, specialChars: false })
-        const message: TwilioMessage = {
-            body: generateMessageTemplate(template, { otp }),
-            from: TWILIO_PHONE_NUMBER,
-            to: "+91" + to
 
+        const message: { to: string, channel: string } = {
+            to: "+91" + String(to), channel: "sms"
         }
-        client.messages.create(message).then(message => {
+        client.verify.v2?.services(TWILIO_SERVICE_SID).verifications.create(message).then(message => {
             resolve(message)
         }).catch(err => {
             reject(err)
@@ -22,3 +16,15 @@ export default function sendMessageUsingTwilio(to: number | undefined, template:
     })
 }
 
+export function verifyOtpUsingTwilio(to: number, code: string) {
+    return new Promise((resolve, reject) => {
+        const message: { to: string, code: string } = {
+            to: "+91" + String(to), code
+        }
+        client.verify.v2?.services(TWILIO_SERVICE_SID).verificationChecks.create(message).then(message => {
+            resolve(message)
+        }).catch(err => {
+            reject(err)
+        })
+    })
+}
