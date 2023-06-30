@@ -9,7 +9,7 @@ const userSignupSchema = Joi.object({
 })
 const userLoginSchema = Joi.object({
     email: Joi.string().email({ tlds: { allow: false } }),
-    password: Joi.string().length(16).required(),
+    password: Joi.string().min(8).max(16).message("password length must be less than or equal to 16 characters long").required(),
 })
 
 export {

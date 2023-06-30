@@ -1,10 +1,10 @@
-import jwt, { JwtPayload, VerifyErrors, VerifyOptions } from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET_KEY } from "../config/envVariables";
 
 
-export function generateJwtToken(data: any): Promise<string> {
+export function generateJwtToken(data: any,expiresIn: string): Promise<string> {
     return new Promise((resolve, reject) => {
-        jwt.sign(data, JWT_SECRET_KEY, { expiresIn: "2d" }, function (err: any, token: any) {
+        jwt.sign(data, JWT_SECRET_KEY, { expiresIn }, function (err: any, token: any) {
             if (err) {
                 reject(err)
             }

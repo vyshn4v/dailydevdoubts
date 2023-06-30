@@ -7,6 +7,8 @@ import logger from "./helpers/quick-logger"
 import errorHandler from "./helpers/errorHandler";
 import userRouter from "./routes/userRoute";
 import { verifyUserToken } from "./middleware/userTokenverifivation";
+import questionRouter from "./routes/questionRoute";
+import answerRouter from "./routes/answerRoute";
 declare global {
     var logger: any;
 }
@@ -19,6 +21,8 @@ app.use(cors())
 
 app.use("/api/auth", authRouter)
 app.use("/api/user",verifyUserToken, userRouter)
+app.use("/api/question",verifyUserToken, questionRouter)
+app.use("/api/answer",verifyUserToken, answerRouter)
 
 app.use(errorHandler)
 
