@@ -8,26 +8,28 @@ import user from '../models/user';
 import { Types } from 'mongoose';
 import { User } from '../types/user';
 export const AddQuestion = asyncHandler(async (req: CustomRequest, res: Response) => {
-    const { title, html, tags, user_id } = req.body
-    if (!title || !html || !tags.length || !user_id) {
+    const { title, html, tags } = req.body
+    const { _id } = req.user
+    if (!title || !html || !tags.length || !_id) {
         res.status(400).json({ status: false, message: "params missing" })
+        throw new Error('params missing ')
     }
     const sanitizedHtml = sanitizeHtml(String(html).replace(/\"/g, "'"))
     const question = new Question({
-        user_id,
+        user: _id,
         title,
         body: sanitizedHtml,
         tags
     })
-    question.save()
+    await question.save()
     res.json({ status: true, data: question })
 })
 export const getAllQuestion = asyncHandler(async (req: CustomRequest, res: Response) => {
-    const { start, limit, sort } = req.query
+    const { start, limit, sort, search } = req.query
     let
         starting: number = 0,
         limitDataTo: number = 5,
-        sorting: { [createdAt: string]: 1 | -1 } = { createdAt: 1 }
+        sorting: { [createdAt: string]: 1 | -1 } = { createdAt: -1 }, searchQuery: string
     if (start) {
         starting = Number(start)
     }
@@ -40,11 +42,13 @@ export const getAllQuestion = asyncHandler(async (req: CustomRequest, res: Respo
         res.status(400).json({ status: true, message: "params not matched" })
         throw new Error("params not matched")
     }
-    const allQuestions = await Question.find(req?.admin ? {} : { isApprove: true }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password")
+
+    const allQuestions = await Question.find(req?.admin ? { title: { $regex: search ?? "", $options: "i" } } : { isApprove: true, title: { $regex: search ?? "", $options: "i" } }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers')
     res.json({ status: true, data: allQuestions })
 })
 export const getQuestion = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
     const { question_id } = req.query
+
     let searchParams: { _id: mongoose.Types.ObjectId } | null = null
     if (question_id) {
         searchParams = { _id: new mongoose.Types.ObjectId(String(question_id)) }
@@ -56,15 +60,77 @@ export const getQuestion = asyncHandler(async (req: CustomRequest, res: Response
         res.status(400).json({ status: true, message: "params missing" })
         throw new Error("params missing")
     }
-    const allQuestions = await Question.aggregate([{ $match: searchParams }, {
-        $lookup: {
-            from: "users",
-            localField: "user_id",
-            foreignField: "_id",
-            as: "user"
+
+    let allQuestions = await Question.aggregate([
+        {
+            $match: searchParams
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "user",
+                foreignField: "_id",
+                as: "user"
+            }
+        },
+        {
+            $lookup: {
+                from: "answers",
+                localField: "_id",
+                foreignField: "question",
+                as: "answers"
+            }
+        },
+        {
+            $unwind: {
+                path: "$answers",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "answers.user",
+                foreignField: "_id",
+                as: "answers.user"
+            }
+        },
+        {
+            $group: {
+                _id: "$_id",
+                question: { $first: "$$ROOT" },
+                answers: { $push: "$answers" }
+            }
+        },
+        {
+            $project: {
+                "question.user": 1,
+                "question.title": 1,
+                "question.body": 1,
+                "question.tags": 1,
+                "question.views": 1,
+                "question.isApprove": 1,
+                "question.up_vote": 1,
+                "question.down_vote": 1,
+                "question.createdAt": 1,
+                "question.updatedAt": 1,
+                "answers": {
+                    $filter: {
+                        input: "$answers",
+                        as: "answer",
+                        cond: { $ne: ["$$answer.user", []] }
+                    }
+                }
+            }
         }
-    }])
-    res.json({ status: true, data: allQuestions[0] })
+    ])
+    allQuestions[0].answers.sort((a: { up_vote: string | any[]; down_vote: string | any[]; }, b: { up_vote: string | any[]; down_vote: string | any[]; }) => {
+        const aScore = a.up_vote.length - a.down_vote.length;
+        const bScore = b.up_vote.length - b.down_vote.length;
+
+        return bScore - aScore;
+    });
+    res.json({ status: true, data: allQuestions })
 })
 export const approveQuestion = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
     const { id, isApprove } = req.query
@@ -90,7 +156,11 @@ export const voteQuestion = asyncHandler(async (req: CustomRequest, res: Respons
         throw new Error("Params missing")
     }
     const questioExisted = await Question.findById(question_id)
-    if (_id?.toString() == questioExisted?._id.toString()) {
+    if (!questioExisted) {
+        res.status(404).json({ status: false, message: "invalid answer id cant find answer" })
+        throw new Error(`user ${_id} try to up vote using an invalid question id ${question_id}`)
+    }
+    if (_id?.toString() == questioExisted?.user.toString()) {
         res.status(405).json({ status: false, message: 'you cant vote your own questions' })
         throw new Error(`user ${_id} trying to vote own question ${question_id}`)
     }
@@ -106,10 +176,15 @@ export const voteQuestion = asyncHandler(async (req: CustomRequest, res: Respons
     let updatedQuestion = await Question.findByIdAndUpdate(question_id, update, { new: true })
     let User = await user.findById(updatedQuestion?.user)
     await updatedQuestion?.populate('user', "-password")
-    if (User && !updatedQuestion?.up_vote.includes(_id) && !updatedQuestion?.down_vote.includes(_id)) {
-        console.log(User);
-        User.reputation = User.reputation + 5;
+    if (User) {
+        if (!questioExisted?.up_vote.includes(_id) && upvote) {
+            User.reputation = User.reputation + 5
+        }
+        if (!questioExisted?.down_vote.includes(_id) && !upvote) {
+            User.reputation = User.reputation - 5
+        }
         await User.save();
     }
+    logger.info(`user ${_id} is successfully ${Boolean(upvote) ? "up vote" : "down vote"} question ${question_id}`)
     res.json({ status: true, data: updatedQuestion })
 })

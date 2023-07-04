@@ -1,18 +1,27 @@
+import mongoose, { Schema } from 'mongoose';
 import asyncHandler from 'express-async-handler';
 import { CustomRequest } from '../types/requsetObject';
 import { Response } from 'express';
 import user from '../models/user';
+import BookmarkedQuestions from '../models/bookmarkedQuestions';
+import AnswerRequest from '../models/answerRequest';
 
 export const getAllUsers = asyncHandler(async (req: CustomRequest, res: Response) => {
-    const { start, limit } = req.query
-    let starting: number = 0, limitCount: number = 5
+    const { start, limit, sort, search } = req.query
+    let starting: number = 0, limitCount: number = 5, sorting: { [createdAt: string]: 1 | -1 } = { createdAt: 1 }
     if (start) {
         starting = Number(start)
     }
     if (limit) {
         limitCount = Number(limit)
     }
-    const allUser = await user.find({},{"password":0}).skip(starting).limit(limitCount)
+    if (sort === "asc" || sort === "des") {
+        sorting = (sort === 'asc') ? { createdAt: 1 } : { createdAt: -1 }
+    } else if (sort) {
+        res.status(400).json({ status: true, message: "params not matched" })
+        throw new Error("params not matched")
+    }
+    const allUser = await user.find(req?.admin ? { name: { $regex: search ?? "", $options: "i" } } : { name: { $regex: search ?? "", $options: "i" }, isApprove: true }, { "password": 0 }).sort(sorting).skip(starting).limit(limitCount)
     res.json({ status: true, data: allUser })
 })
 export const manageUser = asyncHandler(async (req: CustomRequest, res: Response) => {
@@ -33,4 +42,44 @@ export const manageUser = asyncHandler(async (req: CustomRequest, res: Response)
     }
     const User = await user.findByIdAndUpdate({ _id: user_id }, { isBanned }, { new: true })
     res.json({ status: true, data: User })
+})
+export const getProfile = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { _id: id } = req.query
+    const { _id } = req.user
+
+    if (!_id) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        })
+        throw new Error('params missing')
+    }
+
+    const User = await user.aggregate([
+        {
+            $match: {
+                _id: id ? new mongoose.Types.ObjectId(String(id)) : _id
+            }
+        },
+        {
+            $lookup: {
+                from: "questions",
+                localField: "_id",
+                foreignField: "user",
+                as: "questions"
+            }
+        },
+        {
+            $lookup: {
+                from: "answers",
+                localField: "_id",
+                foreignField: "user",
+                as: "answers"
+            }
+        },
+    ])
+    const editAnswerRequests = await AnswerRequest.find({ user: _id }).populate('edited_by', '-password')
+    const followers = await user.find({ following_user: { $in: [_id] } })
+    const bookmark = await BookmarkedQuestions.findById(_id).populate("Bookmarks", '-password')
+    res.json({ status: true, data: { ...User[0], followers, bookmark, editAnswerRequests } })
 })

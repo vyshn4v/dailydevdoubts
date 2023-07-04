@@ -6,7 +6,7 @@ const questions_schema = new Schema<Question>({
     user: { type: mongoose.Types.ObjectId, ref: "users" },
     title: { type: String, require: true },
     body: { type: String, require: true },
-    tags: [{ type: Schema.Types.ObjectId, require:true }],
+    tags: [{ type: String }],
     answers: [{ type: Schema.Types.ObjectId, ref: 'answers' }],
     views: { type: Number, default: 0 },
     isApprove: { type: Boolean, default: false },

@@ -145,6 +145,29 @@ export const VerifyOtpUser = asyncHandler(async (req: CustomRequest, res: Respon
         })
     }
 })
+export const ResendOtpUser = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { _id } = req.user
+    if (!_id) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        })
+    }
+    const User = await user.findById(_id)
+    if (!User?.isVerified) {
+        await sendOtpUsingTwilio(User?.phone, "SIGNUP")
+        res.json({
+            status: true,
+            message: "otp resend succesfully"
+        })
+    } else {
+        res.status(409).json({
+            status: false,
+            message: "user is already verified"
+        })
+    }
+
+})
 export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Response) => {
     const googleTOken: string = String(req.body.googleTOken)
     if (!googleTOken) {
@@ -154,6 +177,8 @@ export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Resp
         })
     }
     const payload = await (await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data
+    console.log(payload);
+
     if (payload) {
         const existedUser: User | null = await user.findOne({ email: payload.email })
         if (!existedUser) {

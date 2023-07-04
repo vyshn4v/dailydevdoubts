@@ -12,6 +12,7 @@ export default function generateUserOutputWithouPasswordtsts(user: User, token: 
         "following_user": user.following_user,
         "isSignupWithGoogle": user.isSignupWithGoogle,
         "_id": user._id,
+        "badges":user.badges,
         "createdAt": user.createdAt,
         "updatedAt": user.updatedAt,
         "token": token,

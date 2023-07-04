@@ -11,5 +11,5 @@ const answer_schema = new Schema({
     down_vote: [{ type: Schema.Types.ObjectId, ref: 'users' }]
 }, { timestamps: true })
 
-const Answer = model('answer', answer_schema)
+const Answer = model('answers', answer_schema)
 export default Answer 

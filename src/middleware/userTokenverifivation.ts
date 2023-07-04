@@ -30,8 +30,7 @@ export const verifyUserToken = asyncHandler(async (req: CustomRequest, res: Resp
                     status: false,
                     message: "User is banned"
                 })
-                throw Error(`Banned user ${User.name }is try to access
-                `)
+                throw Error(`Banned user ${User.name }is try to access`)
             }
             req.user = User
             next()
