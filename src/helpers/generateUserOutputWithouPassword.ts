@@ -1,6 +1,6 @@
 import { User, UsernWithOutPassword } from "../types/user";
 
-export default function generateUserOutputWithouPasswordtsts(user: User, token: string, refreshToken: string) {
+export default function generateUserOutputWithouPasswordtsts(user: User, token: string, refreshToken: string,Bookmark:any) {
     let data = {
         "name": user.name,
         "email": user.email,
@@ -16,7 +16,8 @@ export default function generateUserOutputWithouPasswordtsts(user: User, token: 
         "createdAt": user.createdAt,
         "updatedAt": user.updatedAt,
         "token": token,
-        "refreshToken":refreshToken
+        "refreshToken":refreshToken,
+        "bookmark":Bookmark
     }
     return <UsernWithOutPassword>{
         ...data

@@ -5,6 +5,7 @@ import { Response } from 'express';
 import user from '../models/user';
 import BookmarkedQuestions from '../models/bookmarkedQuestions';
 import AnswerRequest from '../models/answerRequest';
+import Question from '../models/question';
 
 export const getAllUsers = asyncHandler(async (req: CustomRequest, res: Response) => {
     const { start, limit, sort, search } = req.query
@@ -21,7 +22,7 @@ export const getAllUsers = asyncHandler(async (req: CustomRequest, res: Response
         res.status(400).json({ status: true, message: "params not matched" })
         throw new Error("params not matched")
     }
-    const allUser = await user.find(req?.admin ? { name: { $regex: search ?? "", $options: "i" } } : { name: { $regex: search ?? "", $options: "i" }, isApprove: true }, { "password": 0 }).sort(sorting).skip(starting).limit(limitCount)
+    const allUser = await user.find(req?.admin ? { name: { $regex: search ?? "", $options: "i" } } : { name: { $regex: search ?? "", $options: "i" }, isVerified: true }, { "password": 0 }).sort(sorting).skip(starting).limit(limitCount)
     res.json({ status: true, data: allUser })
 })
 export const manageUser = asyncHandler(async (req: CustomRequest, res: Response) => {
@@ -78,8 +79,28 @@ export const getProfile = asyncHandler(async (req: CustomRequest, res: Response)
             }
         },
     ])
-    const editAnswerRequests = await AnswerRequest.find({ user: _id }).populate('edited_by', '-password')
+    const editAnswerRequests = await AnswerRequest.find({ user: _id, isApprove: false }).populate('edited_by', '-password')
     const followers = await user.find({ following_user: { $in: [_id] } })
     const bookmark = await BookmarkedQuestions.findById(_id).populate("Bookmarks", '-password')
     res.json({ status: true, data: { ...User[0], followers, bookmark, editAnswerRequests } })
+})
+export const uploadImage = asyncHandler(async (req: CustomRequest, res: Response) => {
+    let path = req.file?.path
+    const { _id } = req.user
+    if (!_id || !path) {
+        res.status(400).json({ status: false, message: "params missing" })
+    }
+    await user.findByIdAndUpdate(_id, { profile_image: path })
+    res.json({ status: true, data: path })
+})
+
+export const followUnfollowUser = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { user_id, follow } = req.query
+    const { _id } = req.user
+    if (!user_id || !_id) {
+        res.status(400).json({ status: false, message: "params missing" })
+    }
+    const query = follow ? { $addToSet: { following_user: user_id } } : { $pull: { following_user: user_id } }
+    const User = await user.findByIdAndUpdate(_id, query, { new: true })
+    res.json({ status: true, data: User })
 })

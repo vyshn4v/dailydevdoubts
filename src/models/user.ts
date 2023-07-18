@@ -3,8 +3,7 @@ import { User } from "../types/user";
 
 const badge_schema = new Schema({
     badge: { type: String },
-    total:{type:Number,default:0},
-    reputation: { type: Number, default: 0 }
+    count:{type:Number,default:0},
 })
 
 const user_schema = new Schema<User>({

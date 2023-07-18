@@ -115,12 +115,12 @@ export const editRequest = asyncHandler(async (req: CustomRequest, res: Response
         res.status(409).json({ status: false, message: "no answer exist for this answer id" })
         throw new Error(`user ${_id} already try to request invalid  answer ${answer_id}`)
     }
-    const user = await Answer.findOne({ _id: answer_id, user: _id }).count()
+    const user = await Answer.findOne({ _id: new mongoose.Types.ObjectId(answer_id), user: new mongoose.Types.ObjectId(_id) }).count()
     if (user) {
         res.status(409).json({ status: false, message: "you can't edit your own answer" })
         throw new Error("you can't edit your own answer")
     }
-    const answerExisted = await AnswerRequest.findOne({ answer: answer_id, user: _id })
+    const answerExisted = await AnswerRequest.findOne({ answer: new mongoose.Types.ObjectId(answer_id), edited_by: new mongoose.Types.ObjectId(_id) })
     if (answerExisted) {
         res.status(409).json({ status: false, message: "already request to edit this answer" })
         throw new Error(`user ${_id} already request to edit this  answer ${answer_id}`)
@@ -136,4 +136,26 @@ export const editRequest = asyncHandler(async (req: CustomRequest, res: Response
     await newRequest.save()
     logger.info(`user ${_id} is successfully sent edit answer request for answer ${answer_id}`)
     res.json({ status: true, data: newRequest })
+})
+
+export const approveEditRequest = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
+    if (!req.user) {
+        res.status(401).json({ status: false, message: "you can do this unauthorized request" })
+        throw new Error("user not present this request")
+    }
+    const { answer_id } = req.query
+    if (!answer_id) {
+        res.status(400).json({ status: false, message: "Params missing" })
+        throw new Error("Params missing while approving answer request")
+    }
+    const requestExist = await AnswerRequest.findById(answer_id)
+    if (!requestExist) {
+        res.status(400).json({ status: false, message: "no resource for this id" })
+        throw new Error("Params missing while approving answer request")
+    }
+    await Answer.findByIdAndUpdate(requestExist.answer, { body: requestExist.body, editedBy: requestExist.edited_by, isEdited: true })
+    requestExist.isApprove = true
+    const newRequest = await requestExist.save()
+    res.json({ status: true, data: newRequest })
+
 })

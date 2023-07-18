@@ -9,12 +9,13 @@ export interface User {
     isVerified: boolean;
     reputation: number;
     profile_image: string;
-    badges: Array<Object>|undefined ;
+    badges: Array<Object> | undefined;
     following_user: Array<Types.ObjectId>;
     isSignupWithGoogle: boolean;
     _id: Types.ObjectId;
     createdAt: NativeDate;
     updatedAt: NativeDate;
+    bookmark: Array<Types.ObjectId>
 };
 export type UsernWithOutPassword = Omit<User, "password">
 

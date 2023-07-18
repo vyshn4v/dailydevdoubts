@@ -4,6 +4,7 @@ import { verifyJwtToken } from "../helpers/jwtToken";
 import { CustomRequest } from "../types/requsetObject";
 import user from "../models/user";
 import { ADMIN_EMAIL } from "../config/envVariables";
+import { JwtPayload } from "jsonwebtoken";
 
 export const verifyUserToken = asyncHandler(async (req: CustomRequest, res: Response, next: NextFunction) => {
     const token: string | undefined = req.headers.authorization?.split(' ')[1]
@@ -13,24 +14,23 @@ export const verifyUserToken = asyncHandler(async (req: CustomRequest, res: Resp
             message: "Token not found"
         })
         throw Error("Token Not Found")
-        return
     }
-    const decode = await verifyJwtToken(token)
+    const decode:JwtPayload = await verifyJwtToken(token)
     const currentTime = new Date()
-    if (decode.exp && decode.exp > (currentTime.getTime() / 1000)) {
-        if (decode.email === ADMIN_EMAIL) {
-            req.admin = decode.email
+    if (decode?.exp && decode?.exp > (currentTime.getTime() / 1000)) {
+        if (decode?.email === ADMIN_EMAIL) {
+            req.admin = decode?.email
             return next()
         }
 
-        const User = await user.findById({ _id: decode._id })
+        const User = await user.findById({ _id: decode?._id })
         if (User) {
             if (User.isBanned) {
                 res.json({
                     status: false,
                     message: "User is banned"
                 })
-                throw Error(`Banned user ${User.name }is try to access`)
+                throw Error(`Banned user ${User.name}is try to access`)
             }
             req.user = User
             next()
@@ -42,7 +42,7 @@ export const verifyUserToken = asyncHandler(async (req: CustomRequest, res: Resp
             throw Error("user not found")
         }
     } else {
-        res.json({
+        res.status(401).json({
             status: false,
             message: "Token Expired"
         })

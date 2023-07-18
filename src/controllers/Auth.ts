@@ -1,17 +1,20 @@
+
+import { Types } from 'mongoose';
 import asyncHandler from "express-async-handler"
 import user from "../models/user"
 import bcrypt from "bcrypt"
 import { sendOtpUsingTwilio, verifyOtpUsingTwilio } from "../helpers/sendMessageTwilio"
-import { ADMIN_EMAIL, ADMIN_PASSWORD, BCRYPT_SALT_ROUND, GOOGLE_CLIENT_ID, JWT_SECRET_KEY } from "../config/envVariables"
+import { ADMIN_EMAIL, ADMIN_PASSWORD, BCRYPT_SALT_ROUND, GOOGLE_CLIENT_ID, JWT_ACCESS_TOKEN_EXPIRED_TIME, JWT_REFRESH_TOKEN_EXPIRED_TIME, JWT_SECRET_KEY } from "../config/envVariables"
 import { Request, Response } from "express"
 import { User, UsernWithOutPassword } from "../types/user.js"
-import { generateJwtToken } from "../helpers/jwtToken"
+import { generateJwtToken, generateRefreshToken, verifyJwtToken, verifyRefreshToken } from "../helpers/jwtToken"
 import { CustomRequest } from "../types/requsetObject"
 import hashPassword from "../helpers/passwordHashing"
 import passwordValidation from "../helpers/passwordValidation"
 import axios from "axios"
 import generateUserOutputWithouPasswordtsts from "../helpers/generateUserOutputWithouPassword"
 import jwt, { JwtPayload } from "jsonwebtoken"
+import BookmarkedQuestions from "../models/bookmarkedQuestions"
 export const userSignup = asyncHandler(async (req: Request, res: Response) => {
     const { username, email, phone, password, confirm_password } = req.body
     if (!username || !email || !phone || !password || !confirm_password) {
@@ -49,11 +52,12 @@ export const userSignup = asyncHandler(async (req: Request, res: Response) => {
     User.save()
     logger.info(`user ${User.name} success fully signed in user id : ${User._id}`)
     await sendOtpUsingTwilio(User.phone, "SIGNUP")
-    const token: string = await generateJwtToken({ _id: User._id }, "5d")
-    const refreshToken = await generateJwtToken({ user: User.name }, "1m")
+    const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
+    const refreshToken = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
+    const Bookmark = await BookmarkedQuestions.findById({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })
     res.json({
         status: true,
-        data: generateUserOutputWithouPasswordtsts(User, token, refreshToken)
+        data: generateUserOutputWithouPasswordtsts(User, token, refreshToken, Bookmark?.Bookmarks)
     })
 })
 export const userLogin = asyncHandler(async (req: Request, res: Response) => {
@@ -85,11 +89,12 @@ export const userLogin = asyncHandler(async (req: Request, res: Response) => {
     if (!User.isVerified) {
         await sendOtpUsingTwilio(User.phone, "SIGNUP")
     }
-    const token: string = await generateJwtToken({ _id: User._id, isOtpVerified: false }, "1d")
-    const refreshToken: string = await generateJwtToken({ user: User.name }, "1m")
+    const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
+    const refreshToken: string = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
+    const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })
     res.json({
         status: true,
-        data: generateUserOutputWithouPasswordtsts(User, token, refreshToken)
+        data: generateUserOutputWithouPasswordtsts(User, token, refreshToken, Bookmark?.Bookmarks)
     })
 })
 export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
@@ -111,13 +116,14 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
         })
         throw Error("invalid password in login field :" + email)
     }
-    const token: string = await generateJwtToken({ email }, "1d")
-    const refreshToken: string = await generateJwtToken({ user: "admin" }, "1m")
+    const token: string = await generateJwtToken({ email }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
+    const refreshToken: string = await generateRefreshToken({ user: ADMIN_EMAIL }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
     res.json({
         status: true,
         data: {
             "email": email,
-            "token": token
+            "token": token,
+            refreshToken
         }
     })
 })
@@ -177,8 +183,6 @@ export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Resp
         })
     }
     const payload = await (await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data
-    console.log(payload);
-
     if (payload) {
         const existedUser: User | null = await user.findOne({ email: payload.email })
         if (!existedUser) {
@@ -191,11 +195,12 @@ export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Resp
                 isVerified: payload.email_verified
             })
             User.save()
-            const token: string = await generateJwtToken({ _id: User._id, isOtpVerified: false }, "1d")
-            const refreshToken: string = await generateJwtToken({ user: User.name }, "1m")
+            const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
+            const refreshToken: string = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
+            const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })
             res.json({
                 status: true,
-                data: generateUserOutputWithouPasswordtsts(User, token, refreshToken)
+                data: generateUserOutputWithouPasswordtsts(User, token, refreshToken, Bookmark)
             })
         } else {
             res.status(406).json({ status: false, message: "already signup with email please login" })
@@ -218,11 +223,12 @@ export const loginWithGoogle = asyncHandler(async (req: CustomRequest, res: Resp
         if (existedUser) {
             const passwordStatus = await passwordValidation(payload.sub, existedUser.password)
             if (passwordStatus) {
-                const token: string = await generateJwtToken({ _id: existedUser._id, isOtpVerified: false }, "1d")
-                const refreshToken: string = await generateJwtToken({ user: existedUser.name }, "1m")
+                const token: string = await generateJwtToken({ _id: existedUser._id },JWT_ACCESS_TOKEN_EXPIRED_TIME)
+                const refreshToken: string = await generateRefreshToken({ user: existedUser._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
+                const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(existedUser._id) }, { _id: 1, Bookmarks: 1 })
                 res.json({
                     status: true,
-                    data: generateUserOutputWithouPasswordtsts(existedUser, token, refreshToken)
+                    data: generateUserOutputWithouPasswordtsts(existedUser, token, refreshToken, Bookmark?.Bookmarks)
                 })
             }
         } else {
@@ -231,22 +237,32 @@ export const loginWithGoogle = asyncHandler(async (req: CustomRequest, res: Resp
     }
 
 })
-export const verifyRefreshToken = asyncHandler(async (req: CustomRequest, res: Response) => {
-    const refreshToken: string = String(req.body.refreshToken)
+export const refreshToken = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const refreshToken: string = String(req.headers.authorization).split(" ")[1]
+    const accessToken: string = String(req.body.refreshToken).split(" ")[1]
 
-    if (!refreshToken) {
+    if (!accessToken) {
         res.status(400).json({
             status: false,
-            message: "missing google token"
+            message: "missing token"
         })
     }
-    jwt.verify(refreshToken, JWT_SECRET_KEY, (err, decoded): any => {
-        if (err) {
-            res.status(498).json({ status: false, message: "Token malformed" })
+
+    console.log(accessToken)
+    const decodeAccessToken = await verifyRefreshToken(accessToken)
+    console.log(decodeAccessToken)
+    if (decodeAccessToken) {
+        let accessToken
+        if (decodeAccessToken.user === ADMIN_EMAIL) {
+            accessToken = await generateJwtToken({ email: decodeAccessToken.user }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
+        } else {
+            accessToken = await generateJwtToken({ _id: decodeAccessToken.user }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
         }
-        // const refreshtoken=
-        res.json({ status: true, message: "refreshtoken validated" });
-    })
+        res.json({ status: true, data: accessToken });
+    } else {
+        res.status(498).json({ status: false, message: "Token malformed" })
+        throw new Error("Token malformed")
+    }
 
 })
 
