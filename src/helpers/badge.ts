@@ -30,7 +30,7 @@ async function badge() {
                 user.badges = badges
                 await user.save()
             }
-            const totalQuestion = await Question.find({ user: new mongoose.Types.ObjectId(String(user._id)) }).count()
+            const totalQuestion = await Question.find({ user: new mongoose.Types.ObjectId(String(user._id)), isApprove: true }).count()
             if (user?.badges) {
                 if (totalQuestion >= ((user?.badges[0]?.count + 1) * 10) && totalQuestion >= 10) {
                     user.badges[0].count = getFirstDigits(totalQuestion)

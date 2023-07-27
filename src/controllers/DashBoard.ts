@@ -6,6 +6,13 @@ import Chat from '../models/chats';
 import Questions from '../models/question';
 import user from '../models/user';
 export const dashBoardData = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
+    if (!req.admin) {
+        res.json({
+            status: false,
+            message: "Unauthrized user"
+        })
+        throw ('Unauthorized user')
+    }
     const totalUsersInMonth = await user.find({
         $where: function () {
             var currentDate = new Date();

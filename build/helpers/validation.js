@@ -15,6 +15,6 @@ const userSignupSchema = joi_1.default.object({
 exports.userSignupSchema = userSignupSchema;
 const userLoginSchema = joi_1.default.object({
     email: joi_1.default.string().email({ tlds: { allow: false } }),
-    password: joi_1.default.string().length(16).required(),
+    password: joi_1.default.string().min(8).max(16).message("password length must be less than or equal to 16 characters long").required(),
 });
 exports.userLoginSchema = userLoginSchema;

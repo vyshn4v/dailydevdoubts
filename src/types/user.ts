@@ -12,6 +12,7 @@ export interface User {
     badges: Array<Object> | undefined;
     following_user: Array<Types.ObjectId>;
     isSignupWithGoogle: boolean;
+    plan:Types.ObjectId;
     _id: Types.ObjectId;
     createdAt: NativeDate;
     updatedAt: NativeDate;

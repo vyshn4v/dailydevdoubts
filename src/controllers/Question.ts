@@ -9,12 +9,32 @@ import { Types } from 'mongoose';
 import { User } from '../types/user';
 import reportedQuestions from '../models/reportedQuestions';
 import BookmarkedQuestions from '../models/bookmarkedQuestions';
+import DailyActivity from '../models/dailyActivity';
+import { getDailyactivity, updateDailyQuestionLimit } from '../helpers/getDailyActivity';
+import { getSocketIO } from '../helpers/socket';
+const NOTIFICATION = "notification";
 export const AddQuestion = asyncHandler(async (req: CustomRequest, res: Response) => {
     const { title, html, tags } = req.body
-    const { _id } = req.user
+    const { _id, plan } = req.user
+    const dailyActivity = await getDailyactivity(_id)
+    console.log('plan', plan);
+    console.log('dailyActivity', dailyActivity);
     if (!title || !html || !tags.length || !_id) {
         res.status(400).json({ status: false, message: "params missing" })
         throw new Error('params missing ')
+    }
+    if (!plan&&dailyActivity.totalQuestions>=1) {
+        res.status(400).json({ status: false, message: "Please upgrade your plan" })
+        throw new Error('Please upgrade your plan')
+    }
+    if(plan&&new Date(plan.expired_date)<new Date()){
+        res.status(400).json({ status: false, message: "Plan expired please update plan" })
+        throw new Error('Plan expired please update plan')
+    }
+
+    if(plan&&dailyActivity.totalQuestions>=plan.plan.totalQuestions){
+        res.status(400).json({ status: false, message: "Daily Quota limit exceeded please add question tommorow or upgrade plan" })
+        throw new Error('Daily Quota limit exceeded')
     }
     const sanitizedHtml = sanitizeHtml(String(html).replace(/\"/g, "'"))
     const question = new Question({
@@ -24,6 +44,7 @@ export const AddQuestion = asyncHandler(async (req: CustomRequest, res: Response
         tags
     })
     await question.save()
+    await updateDailyQuestionLimit(dailyActivity._id)
     res.json({ status: true, data: question })
 })
 export const getAllQuestion = asyncHandler(async (req: CustomRequest, res: Response) => {
@@ -46,15 +67,21 @@ export const getAllQuestion = asyncHandler(async (req: CustomRequest, res: Respo
     }
 
 
-    const allQuestions = await Question.find(req?.admin ? { title: { $regex: search ?? "", $options: "i" } } : { isApprove: true, title: { $regex: search ?? "", $options: "i" } }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers')
+    const allQuestions = await Question.find(req?.admin ? { $or: [
+        { title: { $regex: search??"", $options: "i" } },
+        { tags: { $regex: search??"", $options: "i" } },
+      ], } : { isApprove: true, $or: [
+        { title: { $regex: search??"", $options: "i" } },
+        { tags: { $regex: search??"", $options: "i" } },
+      ], }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers')
     res.json({ status: true, data: allQuestions })
 })
 export const getQuestion = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
     const { question_id } = req.query
 
-    let searchParams: { _id: mongoose.Types.ObjectId, isApprove: boolean } | null = null
+    let searchParams: { _id: mongoose.Types.ObjectId } | null = null
     if (question_id) {
-        searchParams = { _id: new mongoose.Types.ObjectId(String(question_id)), isApprove: true }
+        searchParams = { _id: new mongoose.Types.ObjectId(String(question_id)) }
         const questionExisted = await Question.findByIdAndUpdate(searchParams, { $inc: { views: 1 } })
         if (!questionExisted) {
             res.status(404).json({ status: false, message: "question not found" })
@@ -131,24 +158,24 @@ export const getQuestion = asyncHandler(async (req: CustomRequest, res: Response
     const editedByUserIds = allQuestions.flatMap(question => question.answers?.filter((answer: { editedBy: any; }) => answer.editedBy).map((answer: { editedBy: any }) => answer.editedBy._id));
     const editedByUsers = await user.find({ _id: { $in: editedByUserIds } });
 
-console.log(editedByUsers);
+    console.log(editedByUsers);
 
     const populatedQuestions = allQuestions.map(question => {
-        const answers=question.answers?.map((answer: { editedBy: Types.ObjectId | (mongoose.Document<unknown, {}, User> & Omit<User & Required<{ _id: Types.ObjectId; }>, never>) | undefined; }) => {
+        const answers = question.answers?.map((answer: { editedBy: Types.ObjectId | (mongoose.Document<unknown, {}, User> & Omit<User & Required<{ _id: Types.ObjectId; }>, never>) | undefined; }) => {
 
             if (answer?.editedBy) {
                 let editedUser = editedByUsers.find(user => user._id?.toString() === answer?.editedBy?.toString());
                 console.log(editedUser);
-                let result={
+                let result = {
                     ...answer,
                     editedUser
                 }
                 return result
-            }else{
+            } else {
                 return answer
             }
         });
-        return {...question,answers}
+        return { ...question, answers }
     });
     // populatedQuestions[0]?.answers?.sort((a: { up_vote: string | any[]; down_vote: string | any[]; }, b: { up_vote: string | any[]; down_vote: string | any[]; }) => {
     //     const aScore = a.up_vote.length - a.down_vote.length;
@@ -173,6 +200,8 @@ export const approveQuestion = asyncHandler(async (req: CustomRequest, res: Resp
         return res.status(400).json({ status: false, message: "Params missing" })
     }
     const allQuestions = await Question.findOneAndUpdate({ _id: id }, { isApprove }, { new: true }).populate('user')
+    // let socketInstance=getSocketIO()
+    // socketInstance?.to(String(allQuestions?.user?._id)).emit(NOTIFICATION, {message:`Your question is ${Boolean(isApprove) ? "approved" : "rejected"} your question`});
     res.json({ status: true, data: allQuestions })
 })
 export const voteQuestion = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
@@ -213,6 +242,8 @@ export const voteQuestion = asyncHandler(async (req: CustomRequest, res: Respons
         }
         await User.save();
     }
+    let socketInstance=getSocketIO()
+    socketInstance?.to(String(questioExisted?.user)).emit(NOTIFICATION, {message:`someone ${Boolean(upvote) ? "up vote" : "down vote"} your question`});
     logger.info(`user ${_id} is successfully ${Boolean(upvote) ? "up vote" : "down vote"} question ${question_id}`)
     res.json({ status: true, data: updatedQuestion })
 })

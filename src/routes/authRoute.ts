@@ -1,11 +1,13 @@
 import express from "express"
-import { adminLogin, loginWithGoogle, signupWithGmail, userLogin, userSignup, refreshToken } from "../controllers/Auth"
+import { adminLogin, loginWithGoogle, signupWithGmail, userLogin, userSignup, refreshToken, ResendOtpToPhone, changePassword } from "../controllers/Auth"
 const authRouter = express.Router()
 import { createValidator } from "express-joi-validation"
 const validator = createValidator()
 import { userLoginSchema, userSignupSchema } from "../helpers/validation"
 
 authRouter.get('/login', validator.query(userLoginSchema), userLogin)
+authRouter.get('/otp', ResendOtpToPhone)
+authRouter.put('/change-password', changePassword)
 authRouter.get('/admin-login', validator.query(userLoginSchema), adminLogin)
 authRouter.post("/signup", validator.body(userSignupSchema), userSignup)
 authRouter.post("/signup-with-google", signupWithGmail)

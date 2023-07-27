@@ -12,13 +12,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyOtpUser = exports.userLogin = exports.userSignup = void 0;
+exports.refreshToken = exports.loginWithGoogle = exports.signupWithGmail = exports.ResendOtpUser = exports.VerifyOtpUser = exports.adminLogin = exports.userLogin = exports.userSignup = void 0;
+const mongoose_1 = require("mongoose");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const user_1 = __importDefault(require("../models/user"));
-const bcrypt_1 = __importDefault(require("bcrypt"));
 const sendMessageTwilio_1 = require("../helpers/sendMessageTwilio");
 const envVariables_1 = require("../config/envVariables");
 const jwtToken_1 = require("../helpers/jwtToken");
+const passwordHashing_1 = __importDefault(require("../helpers/passwordHashing"));
+const passwordValidation_1 = __importDefault(require("../helpers/passwordValidation"));
+const axios_1 = __importDefault(require("axios"));
+const generateUserOutputWithouPassword_1 = __importDefault(require("../helpers/generateUserOutputWithouPassword"));
+const bookmarkedQuestions_1 = __importDefault(require("../models/bookmarkedQuestions"));
 exports.userSignup = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { username, email, phone, password, confirm_password } = req.body;
     if (!username || !email || !phone || !password || !confirm_password) {
@@ -44,8 +49,7 @@ exports.userSignup = (0, express_async_handler_1.default)((req, res) => __awaite
         });
         throw new Error("Phone or Email is already Taken");
     }
-    const generatedSalt = yield bcrypt_1.default.genSalt(envVariables_1.BCRYPT_SALT_ROUND);
-    const hashedPassword = yield bcrypt_1.default.hash(password, generatedSalt);
+    const hashedPassword = yield (0, passwordHashing_1.default)(password);
     const User = new user_1.default({
         name: username,
         email,
@@ -53,26 +57,18 @@ exports.userSignup = (0, express_async_handler_1.default)((req, res) => __awaite
         password: hashedPassword
     });
     User.save();
-    yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User.phone, "SIGNUP");
     logger.info(`user ${User.name} success fully signed in user id : ${User._id}`);
+    yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User.phone, "SIGNUP");
+    const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+    const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: User._id }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
+    const Bookmark = yield bookmarkedQuestions_1.default.findById({ user: new mongoose_1.Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 });
     res.json({
         status: true,
-        data: {
-            "name": User.name,
-            "email": User.email,
-            "phone": User.phone,
-            "isBanned": User.isBanned,
-            "isVerified": User.isVerified,
-            "following_user": User.following_user,
-            "isSignupWithGoogle": User.isSignupWithGoogle,
-            "_id": User._id,
-            "createdAt": User.createdAt,
-            "updatedAt": User.updatedAt,
-        }
+        data: (0, generateUserOutputWithouPassword_1.default)(User, token, refreshToken, Bookmark === null || Bookmark === void 0 ? void 0 : Bookmark.Bookmarks)
     });
 }));
 exports.userLogin = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { email, password } = req.body;
+    const { email, password } = req.query;
     const User = yield user_1.default.findOne({ email });
     if (!User) {
         res.status(404).json({
@@ -81,8 +77,15 @@ exports.userLogin = (0, express_async_handler_1.default)((req, res) => __awaiter
         });
         throw Error("invalid email id in login field :" + email);
     }
-    logger.info(`user ${User.name} trying to signup`);
-    const passwordStatus = yield bcrypt_1.default.compare(password, User.password);
+    logger.info(`user ${User.name} trying to login`);
+    if (User.isSignupWithGoogle) {
+        res.status(409).json({
+            status: false,
+            message: 'Email is registered with google try to login using google'
+        });
+        throw new Error('googles registered user try to login with email and password');
+    }
+    const passwordStatus = yield (0, passwordValidation_1.default)(String(password), User.password);
     if (!passwordStatus) {
         res.status(401).json({
             status: false,
@@ -90,17 +93,50 @@ exports.userLogin = (0, express_async_handler_1.default)((req, res) => __awaiter
         });
         throw Error("invalid password in login field :" + email);
     }
-    const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id, isOtpVerified: false });
+    if (!User.isVerified) {
+        yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User.phone, "SIGNUP");
+    }
+    const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+    const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: User._id }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
+    const Bookmark = yield bookmarkedQuestions_1.default.findOne({ user: new mongoose_1.Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 });
+    res.json({
+        status: true,
+        data: (0, generateUserOutputWithouPassword_1.default)(User, token, refreshToken, Bookmark === null || Bookmark === void 0 ? void 0 : Bookmark.Bookmarks)
+    });
+}));
+exports.adminLogin = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { email, password } = req.query;
+    if (email !== envVariables_1.ADMIN_EMAIL) {
+        res.status(404).json({
+            status: false,
+            message: "Enter a valid email address"
+        });
+        throw Error("invalid email id in login field :" + email);
+    }
+    logger.info(`admin ${email} trying to login`);
+    const passwordStatus = (password === envVariables_1.ADMIN_PASSWORD);
+    // await passwordValidation(String(password), User.password)
+    if (!passwordStatus) {
+        res.status(401).json({
+            status: false,
+            message: "Enter a valid password"
+        });
+        throw Error("invalid password in login field :" + email);
+    }
+    const token = yield (0, jwtToken_1.generateJwtToken)({ email }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+    const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: envVariables_1.ADMIN_EMAIL }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
     res.json({
         status: true,
         data: {
-            token
+            "email": email,
+            "token": token,
+            refreshToken
         }
     });
 }));
 exports.VerifyOtpUser = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { Otp } = req.body;
-    const { phone } = req.user;
+    const { phone, _id } = req.user;
     if (!Otp) {
         res.status(400).json({
             status: false,
@@ -109,6 +145,7 @@ exports.VerifyOtpUser = (0, express_async_handler_1.default)((req, res) => __awa
     }
     const OtpStatus = yield (0, sendMessageTwilio_1.verifyOtpUsingTwilio)(phone, Otp);
     if (OtpStatus && OtpStatus.status === "approved") {
+        yield user_1.default.findByIdAndUpdate({ _id }, { isVerified: true });
         res.json({
             status: true,
             data: OtpStatus.status
@@ -119,5 +156,117 @@ exports.VerifyOtpUser = (0, express_async_handler_1.default)((req, res) => __awa
             status: false,
             message: "otp is not verifed"
         });
+    }
+}));
+exports.ResendOtpUser = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { _id } = req.user;
+    if (!_id) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        });
+    }
+    const User = yield user_1.default.findById(_id);
+    if (!(User === null || User === void 0 ? void 0 : User.isVerified)) {
+        yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User === null || User === void 0 ? void 0 : User.phone, "SIGNUP");
+        res.json({
+            status: true,
+            message: "otp resend succesfully"
+        });
+    }
+    else {
+        res.status(409).json({
+            status: false,
+            message: "user is already verified"
+        });
+    }
+}));
+exports.signupWithGmail = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const googleTOken = String(req.body.googleTOken);
+    if (!googleTOken) {
+        res.status(400).json({
+            status: false,
+            message: "missing google token"
+        });
+    }
+    const payload = yield (yield axios_1.default.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data;
+    if (payload) {
+        const existedUser = yield user_1.default.findOne({ email: payload.email });
+        if (!existedUser) {
+            const hashedPassword = yield (0, passwordHashing_1.default)(payload.sub);
+            const User = new user_1.default({
+                name: payload.name,
+                email: payload.email,
+                isSignupWithGoogle: true,
+                password: hashedPassword,
+                isVerified: payload.email_verified
+            });
+            User.save();
+            const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+            const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: User._id }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
+            const Bookmark = yield bookmarkedQuestions_1.default.findOne({ user: new mongoose_1.Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 });
+            res.json({
+                status: true,
+                data: (0, generateUserOutputWithouPassword_1.default)(User, token, refreshToken, Bookmark)
+            });
+        }
+        else {
+            res.status(406).json({ status: false, message: "already signup with email please login" });
+        }
+    }
+}));
+exports.loginWithGoogle = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const googleTOken = String(req.query.googleTOken);
+    if (!googleTOken) {
+        res.status(400).json({
+            status: false,
+            message: "missing google token"
+        });
+    }
+    const payload = yield (yield axios_1.default.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data;
+    if (payload) {
+        const existedUser = yield user_1.default.findOne({ email: payload.email });
+        if (existedUser) {
+            const passwordStatus = yield (0, passwordValidation_1.default)(payload.sub, existedUser.password);
+            if (passwordStatus) {
+                const token = yield (0, jwtToken_1.generateJwtToken)({ _id: existedUser._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+                const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: existedUser._id }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
+                const Bookmark = yield bookmarkedQuestions_1.default.findOne({ user: new mongoose_1.Types.ObjectId(existedUser._id) }, { _id: 1, Bookmarks: 1 });
+                res.json({
+                    status: true,
+                    data: (0, generateUserOutputWithouPassword_1.default)(existedUser, token, refreshToken, Bookmark === null || Bookmark === void 0 ? void 0 : Bookmark.Bookmarks)
+                });
+            }
+        }
+        else {
+            res.status(404).json({ status: false, message: "user not exist" });
+        }
+    }
+}));
+exports.refreshToken = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const refreshToken = String(req.headers.authorization).split(" ")[1];
+    const accessToken = String(req.body.refreshToken).split(" ")[1];
+    if (!accessToken) {
+        res.status(400).json({
+            status: false,
+            message: "missing token"
+        });
+    }
+    console.log(accessToken);
+    const decodeAccessToken = yield (0, jwtToken_1.verifyRefreshToken)(accessToken);
+    console.log(decodeAccessToken);
+    if (decodeAccessToken) {
+        let accessToken;
+        if (decodeAccessToken.user === envVariables_1.ADMIN_EMAIL) {
+            accessToken = yield (0, jwtToken_1.generateJwtToken)({ email: decodeAccessToken.user }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+        }
+        else {
+            accessToken = yield (0, jwtToken_1.generateJwtToken)({ _id: decodeAccessToken.user }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
+        }
+        res.json({ status: true, data: accessToken });
+    }
+    else {
+        res.status(498).json({ status: false, message: "Token malformed" });
+        throw new Error("Token malformed");
     }
 }));

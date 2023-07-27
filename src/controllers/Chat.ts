@@ -19,14 +19,18 @@ export const createChat = asyncHandler(async (req: CustomRequest, res: Response)
         res.status(400).json({ status: false, message: "Params missing" })
         throw new Error(`Params missing is while user ${_id} is try to add question to bookmark`)
     }
-    const existingChat = !isGroup && await Chat.findOne({
-        isGroupChat: isGroup ? true : false,
-        users: { $all: [...users, { user: _id }] },
-    });
+    if (isGroup=='undefined') {
+        console.log(users);
+        const users_id=users.map((user:any)=>user.user)
+        const existingChat = await Chat.exists({
+            isGroupChat: false,
+            'users.user': { $all: [...users_id,  _id ] },
+        });
 
-    if (existingChat) {
-        res.status(400).json({ status: false, message: "Chat already exists" });
-        throw new Error(`Chat already exists for the given users`);
+        if (existingChat) {
+            res.status(400).json({ status: false, message: "Chat already exists" });
+            throw new Error(`Chat already exists for the given users`);
+        }
     }
 
     const newChat = isGroup === 'true' ?

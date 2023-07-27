@@ -49,7 +49,13 @@ export const userSignup = asyncHandler(async (req: Request, res: Response) => {
         phone,
         password: hashedPassword
     })
-    User.save()
+    await (await (await User.save()).populate('plan')).populate({
+        path: 'plan',
+        populate: {
+            path: 'plan',
+            model: 'plans',
+        },
+    })
     logger.info(`user ${User.name} success fully signed in user id : ${User._id}`)
     await sendOtpUsingTwilio(User.phone, "SIGNUP")
     const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
@@ -62,7 +68,13 @@ export const userSignup = asyncHandler(async (req: Request, res: Response) => {
 })
 export const userLogin = asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.query
-    const User = await user.findOne<User>({ email })
+    const User = await user.findOne({ email }).populate('plan').populate({
+        path: 'plan',
+        populate: {
+            path: 'plan',
+            model: 'plans',
+        },
+    })
     if (!User) {
         res.status(404).json({
             status: false,
@@ -153,13 +165,14 @@ export const VerifyOtpUser = asyncHandler(async (req: CustomRequest, res: Respon
 })
 export const ResendOtpUser = asyncHandler(async (req: CustomRequest, res: Response) => {
     const { _id } = req.user
+    let User = req.user
+
     if (!_id) {
         res.status(400).json({
             status: false,
             message: "Params missing"
         })
     }
-    const User = await user.findById(_id)
     if (!User?.isVerified) {
         await sendOtpUsingTwilio(User?.phone, "SIGNUP")
         res.json({
@@ -173,6 +186,67 @@ export const ResendOtpUser = asyncHandler(async (req: CustomRequest, res: Respon
         })
     }
 
+})
+export const changePassword = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { otp, password, phoneNumber } = req.query
+console.log(req.query);
+
+    if (!otp || !password || !phoneNumber) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        })
+    }
+    const OtpStatus: any = await verifyOtpUsingTwilio(Number(phoneNumber), String(otp))
+    if (OtpStatus && OtpStatus.status === "approved") {
+        const hashedPassword: string = await hashPassword(String(password))
+        await user.findOneAndUpdate({ phone:phoneNumber }, { password:hashedPassword })
+        res.json({
+            status: true,
+            data: OtpStatus.status
+        })
+    } else {
+        res.json({
+            status: false,
+            message: "otp is not verifed"
+        })
+    }
+
+})
+export const ResendOtpToPhone = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { phoneNumber } = req.query
+    console.log(req.query);
+
+    if (!phoneNumber) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        })
+        throw new Error("Params missing")
+    }
+
+    if (phoneNumber?.length === 10) {
+        const User = await user.findOne({ phone: phoneNumber })
+        if (User) {
+            await sendOtpUsingTwilio(User?.phone, "SIGNUP")
+            res.json({
+                status: true,
+                message: "otp resend succesfully"
+            })
+        } else {
+            res.status(4094).json({
+                status: false,
+                message: "No user register for this number"
+            })
+            throw new Error("No user register for this number")
+        }
+    } else {
+        res.status(400).json({
+            status: false,
+            message: "phone length is not match"
+        })
+        throw new Error("phone length is not match")
+    }
 })
 export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Response) => {
     const googleTOken: string = String(req.body.googleTOken)
@@ -194,7 +268,13 @@ export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Resp
                 password: hashedPassword,
                 isVerified: payload.email_verified
             })
-            User.save()
+            ;(await (await User.save()).populate('plan')).populate({
+                path: 'plan',
+                populate: {
+                    path: 'plan',
+                    model: 'plans',
+                },
+            })
             const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
             const refreshToken: string = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
             const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })
@@ -219,11 +299,17 @@ export const loginWithGoogle = asyncHandler(async (req: CustomRequest, res: Resp
     }
     const payload = await (await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data
     if (payload) {
-        const existedUser: User | null = await user.findOne({ email: payload.email })
+        const existedUser: User | null = await user.findOne({ email: payload.email }).populate('plan').populate({
+            path: 'plan',
+            populate: {
+                path: 'plan',
+                model: 'plans',
+            },
+        })
         if (existedUser) {
             const passwordStatus = await passwordValidation(payload.sub, existedUser.password)
             if (passwordStatus) {
-                const token: string = await generateJwtToken({ _id: existedUser._id },JWT_ACCESS_TOKEN_EXPIRED_TIME)
+                const token: string = await generateJwtToken({ _id: existedUser._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
                 const refreshToken: string = await generateRefreshToken({ user: existedUser._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
                 const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(existedUser._id) }, { _id: 1, Bookmarks: 1 })
                 res.json({

@@ -78,6 +78,53 @@ export const getProfile = asyncHandler(async (req: CustomRequest, res: Response)
                 as: "answers"
             }
         },
+        {
+            $lookup: {
+                from: "orders",
+                localField: "plan",
+                foreignField: "_id",
+                as: "orders",
+            },
+        },
+        {
+            $unwind: {
+                path: "$orders",
+                preserveNullAndEmptyArrays: true,
+            },
+        },
+        {
+            $lookup: {
+                from: "plans", // Replace with the actual collection name for plans
+                let: { planId: "$orders.plan" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$_id", "$$planId"] },
+                        },
+                    },
+                    {
+                        $addFields: {
+                            expired_date: "$orders.expired_date",
+                        },
+                    },
+                ],
+                as: "orders.plan",
+            },
+        },
+        {
+            $unwind: {
+                path: "$plan",
+                preserveNullAndEmptyArrays: true,
+            },
+        },
+        // {
+        //     $group: {
+        //         _id: "$_id",
+        //         questions: { $first: "$questions" },
+        //         answers: { $first: "$answers" },
+        //         plan: { $push: "$plan" },
+        //     },
+        // }
     ])
     const editAnswerRequests = await AnswerRequest.find({ user: _id, isApprove: false }).populate('edited_by', '-password')
     const followers = await user.find({ following_user: { $in: [_id] } })
@@ -100,7 +147,17 @@ export const followUnfollowUser = asyncHandler(async (req: CustomRequest, res: R
     if (!user_id || !_id) {
         res.status(400).json({ status: false, message: "params missing" })
     }
-    const query = follow ? { $addToSet: { following_user: user_id } } : { $pull: { following_user: user_id } }
+    console.log('follow', follow);
+
+    const query = follow ? { $addToSet: { following_user: new mongoose.Types.ObjectId(String(user_id)) } } : { $pull: { following_user: new mongoose.Types.ObjectId(String(user_id)) } }
     const User = await user.findByIdAndUpdate(_id, query, { new: true })
     res.json({ status: true, data: User })
+})
+export const getFollowedUsers = asyncHandler(async (req: CustomRequest, res: Response) => {
+    const { _id } = req.user
+    if (!_id) {
+        res.status(400).json({ status: false, message: "params missing" })
+    }
+    const Users = await user.findById(_id).populate('following_user')
+    res.json({ status: true, data: Users?.following_user })
 })

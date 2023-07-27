@@ -7,16 +7,35 @@ import mongoose from 'mongoose';
 import { CustomRequest } from '../types/requsetObject';
 import user from '../models/user';
 import AnswerRequest from '../models/answerRequest';
+import { getSocketIO } from '../helpers/socket';
+import { getDailyactivity, updateDailyAnswerLimit } from '../helpers/getDailyActivity';
+
+const NOTIFICATION = "notification";
 
 export const answerQuestion = asyncHandler(async (req: CustomRequest, res: Response) => {
     const { question_id, html } = req.body
-
-    const { _id } = req.user
-    console.log(html, question_id, _id);
+    const { _id, plan } = req.user
+    const dailyActivity = await getDailyactivity(_id)
+    console.log('plan', plan);
+    console.log('dailyActivity', dailyActivity);
     if (!question_id || !_id || !html) {
         res.status(400).json({ status: false, message: "params missing" })
         throw new Error('params missing')
     }
+    if (!plan&&dailyActivity.totalAnswers>=1) {
+        res.status(400).json({ status: false, message: "Please upgrade your plan" })
+        throw new Error('Please upgrade your plan')
+    }
+    if(plan&&new Date(plan.expired_date)<new Date()){
+        res.status(400).json({ status: false, message: "Plan expired please update plan" })
+        throw new Error('Plan expired please update plan')
+    }
+
+    if(plan&&dailyActivity.totalAnswers>=plan.plan.totalAnswers){
+        res.status(400).json({ status: false, message: "Daily Quota limit exceeded please add question tommorow or upgrade plan" })
+        throw new Error('Daily Quota limit exceeded')
+    }
+  
     const userAlredyExist = await Answer.findOne({ question: new mongoose.Types.ObjectId(question_id), user: new mongoose.Types.ObjectId(_id) }).count()
     if (userAlredyExist) {
         res.status(409).json({ status: false, message: "already answered to question" })
@@ -29,6 +48,7 @@ export const answerQuestion = asyncHandler(async (req: CustomRequest, res: Respo
         body: sanitizedHtml
     })
     answer.save()
+    await updateDailyAnswerLimit(_id)
     const User = await user.findById(_id)
     await Question.findByIdAndUpdate(question_id, { $addToSet: { answers: answer._id } })
     res.json({ status: true, data: { ...answer._doc, user: [User] } })
@@ -36,7 +56,7 @@ export const answerQuestion = asyncHandler(async (req: CustomRequest, res: Respo
 
 export const voteAnswer = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
     const { answer_id, upvote } = req.query
-    const { _id } = req.user
+    const { _id,name } = req.user
     logger.info(`user ${_id} is trying to vote answer ${answer_id}`)
     if (!answer_id || !_id) {
         res.status(400).json({ status: false, message: "Params missing" })
@@ -76,6 +96,8 @@ export const voteAnswer = asyncHandler(async (req: CustomRequest, res: Response)
     if (updatedAnswer) {
         output = { ...updatedAnswer.toObject(), user: [User] }
     }
+    let socketInstance=getSocketIO()
+    socketInstance?.to(String(answeExisted.user)).emit(NOTIFICATION, {message:`someone ${Boolean(upvote) ? "up vote" : "down vote"} your answer`});
     logger.info(`user ${_id} is successfully ${Boolean(upvote) ? "up vote" : "down vote"} answer ${answer_id}`)
     res.json({ status: true, data: output })
 })
@@ -156,6 +178,8 @@ export const approveEditRequest = asyncHandler(async (req: CustomRequest, res: R
     await Answer.findByIdAndUpdate(requestExist.answer, { body: requestExist.body, editedBy: requestExist.edited_by, isEdited: true })
     requestExist.isApprove = true
     const newRequest = await requestExist.save()
+    let socketInstance=getSocketIO()
+    socketInstance?.to(String(newRequest.edited_by)).emit(NOTIFICATION, {message:`your answer is approved `});
     res.json({ status: true, data: newRequest })
 
 })

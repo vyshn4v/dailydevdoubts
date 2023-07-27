@@ -23,7 +23,13 @@ export const verifyUserToken = asyncHandler(async (req: CustomRequest, res: Resp
             return next()
         }
 
-        const User = await user.findById({ _id: decode?._id })
+        const User = await user.findById({ _id: decode?._id }).populate('plan').populate({
+            path: 'plan',
+            populate: {
+                path: 'plan',
+                model: 'plans',
+            },
+        })
         if (User) {
             if (User.isBanned) {
                 res.json({
