@@ -21,14 +21,29 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const user_1 = __importDefault(require("../models/user"));
 const answerRequest_1 = __importDefault(require("../models/answerRequest"));
 const socket_1 = require("../helpers/socket");
+const getDailyActivity_1 = require("../helpers/getDailyActivity");
 const NOTIFICATION = "notification";
 exports.answerQuestion = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { question_id, html } = req.body;
-    const { _id } = req.user;
-    console.log(html, question_id, _id);
+    const { _id, plan } = req.user;
+    const dailyActivity = yield (0, getDailyActivity_1.getDailyactivity)(_id);
+    console.log('plan', plan);
+    console.log('dailyActivity', dailyActivity);
     if (!question_id || !_id || !html) {
         res.status(400).json({ status: false, message: "params missing" });
         throw new Error('params missing');
+    }
+    if (!plan && dailyActivity.totalAnswers >= 1) {
+        res.status(400).json({ status: false, message: "Please upgrade your plan" });
+        throw new Error('Please upgrade your plan');
+    }
+    if (plan && new Date(plan.expired_date) < new Date()) {
+        res.status(400).json({ status: false, message: "Plan expired please update plan" });
+        throw new Error('Plan expired please update plan');
+    }
+    if (plan && dailyActivity.totalAnswers >= plan.plan.totalAnswers) {
+        res.status(400).json({ status: false, message: "Daily Quota limit exceeded please add question tommorow or upgrade plan" });
+        throw new Error('Daily Quota limit exceeded');
     }
     const userAlredyExist = yield answer_1.default.findOne({ question: new mongoose_1.default.Types.ObjectId(question_id), user: new mongoose_1.default.Types.ObjectId(_id) }).count();
     if (userAlredyExist) {
@@ -42,6 +57,7 @@ exports.answerQuestion = (0, express_async_handler_1.default)((req, res) => __aw
         body: sanitizedHtml
     });
     answer.save();
+    yield (0, getDailyActivity_1.updateDailyAnswerLimit)(_id);
     const User = yield user_1.default.findById(_id);
     yield question_1.default.findByIdAndUpdate(question_id, { $addToSet: { answers: answer._id } });
     res.json({ status: true, data: Object.assign(Object.assign({}, answer._doc), { user: [User] }) });

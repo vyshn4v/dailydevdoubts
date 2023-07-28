@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refreshToken = exports.loginWithGoogle = exports.signupWithGmail = exports.ResendOtpUser = exports.VerifyOtpUser = exports.adminLogin = exports.userLogin = exports.userSignup = void 0;
+exports.refreshToken = exports.loginWithGoogle = exports.signupWithGmail = exports.ResendOtpToPhone = exports.changePassword = exports.ResendOtpUser = exports.VerifyOtpUser = exports.adminLogin = exports.userLogin = exports.userSignup = void 0;
 const mongoose_1 = require("mongoose");
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const user_1 = __importDefault(require("../models/user"));
@@ -56,7 +56,13 @@ exports.userSignup = (0, express_async_handler_1.default)((req, res) => __awaite
         phone,
         password: hashedPassword
     });
-    User.save();
+    yield (yield (yield User.save()).populate('plan')).populate({
+        path: 'plan',
+        populate: {
+            path: 'plan',
+            model: 'plans',
+        },
+    });
     logger.info(`user ${User.name} success fully signed in user id : ${User._id}`);
     yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User.phone, "SIGNUP");
     const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
@@ -69,7 +75,13 @@ exports.userSignup = (0, express_async_handler_1.default)((req, res) => __awaite
 }));
 exports.userLogin = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { email, password } = req.query;
-    const User = yield user_1.default.findOne({ email });
+    const User = yield user_1.default.findOne({ email }).populate('plan').populate({
+        path: 'plan',
+        populate: {
+            path: 'plan',
+            model: 'plans',
+        },
+    });
     if (!User) {
         res.status(404).json({
             status: false,
@@ -160,13 +172,13 @@ exports.VerifyOtpUser = (0, express_async_handler_1.default)((req, res) => __awa
 }));
 exports.ResendOtpUser = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { _id } = req.user;
+    let User = req.user;
     if (!_id) {
         res.status(400).json({
             status: false,
             message: "Params missing"
         });
     }
-    const User = yield user_1.default.findById(_id);
     if (!(User === null || User === void 0 ? void 0 : User.isVerified)) {
         yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User === null || User === void 0 ? void 0 : User.phone, "SIGNUP");
         res.json({
@@ -179,6 +191,66 @@ exports.ResendOtpUser = (0, express_async_handler_1.default)((req, res) => __awa
             status: false,
             message: "user is already verified"
         });
+    }
+}));
+exports.changePassword = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { otp, password, phoneNumber } = req.query;
+    console.log(req.query);
+    if (!otp || !password || !phoneNumber) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        });
+    }
+    const OtpStatus = yield (0, sendMessageTwilio_1.verifyOtpUsingTwilio)(Number(phoneNumber), String(otp));
+    if (OtpStatus && OtpStatus.status === "approved") {
+        const hashedPassword = yield (0, passwordHashing_1.default)(String(password));
+        yield user_1.default.findOneAndUpdate({ phone: phoneNumber }, { password: hashedPassword });
+        res.json({
+            status: true,
+            data: OtpStatus.status
+        });
+    }
+    else {
+        res.json({
+            status: false,
+            message: "otp is not verifed"
+        });
+    }
+}));
+exports.ResendOtpToPhone = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { phoneNumber } = req.query;
+    console.log(req.query);
+    if (!phoneNumber) {
+        res.status(400).json({
+            status: false,
+            message: "Params missing"
+        });
+        throw new Error("Params missing");
+    }
+    if ((phoneNumber === null || phoneNumber === void 0 ? void 0 : phoneNumber.length) === 10) {
+        const User = yield user_1.default.findOne({ phone: phoneNumber });
+        if (User) {
+            yield (0, sendMessageTwilio_1.sendOtpUsingTwilio)(User === null || User === void 0 ? void 0 : User.phone, "SIGNUP");
+            res.json({
+                status: true,
+                message: "otp resend succesfully"
+            });
+        }
+        else {
+            res.status(4094).json({
+                status: false,
+                message: "No user register for this number"
+            });
+            throw new Error("No user register for this number");
+        }
+    }
+    else {
+        res.status(400).json({
+            status: false,
+            message: "phone length is not match"
+        });
+        throw new Error("phone length is not match");
     }
 }));
 exports.signupWithGmail = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -201,7 +273,13 @@ exports.signupWithGmail = (0, express_async_handler_1.default)((req, res) => __a
                 password: hashedPassword,
                 isVerified: payload.email_verified
             });
-            User.save();
+            (yield (yield User.save()).populate('plan')).populate({
+                path: 'plan',
+                populate: {
+                    path: 'plan',
+                    model: 'plans',
+                },
+            });
             const token = yield (0, jwtToken_1.generateJwtToken)({ _id: User._id }, envVariables_1.JWT_ACCESS_TOKEN_EXPIRED_TIME);
             const refreshToken = yield (0, jwtToken_1.generateRefreshToken)({ user: User._id }, envVariables_1.JWT_REFRESH_TOKEN_EXPIRED_TIME);
             const Bookmark = yield bookmarkedQuestions_1.default.findOne({ user: new mongoose_1.Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 });
@@ -225,7 +303,13 @@ exports.loginWithGoogle = (0, express_async_handler_1.default)((req, res) => __a
     }
     const payload = yield (yield axios_1.default.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${googleTOken}`)).data;
     if (payload) {
-        const existedUser = yield user_1.default.findOne({ email: payload.email });
+        const existedUser = yield user_1.default.findOne({ email: payload.email }).populate('plan').populate({
+            path: 'plan',
+            populate: {
+                path: 'plan',
+                model: 'plans',
+            },
+        });
         if (existedUser) {
             const passwordStatus = yield (0, passwordValidation_1.default)(payload.sub, existedUser.password);
             if (passwordStatus) {

@@ -18,6 +18,13 @@ const chats_1 = __importDefault(require("../models/chats"));
 const question_1 = __importDefault(require("../models/question"));
 const user_1 = __importDefault(require("../models/user"));
 exports.dashBoardData = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!req.admin) {
+        res.json({
+            status: false,
+            message: "Unauthrized user"
+        });
+        throw ('Unauthorized user');
+    }
     const totalUsersInMonth = yield user_1.default.find({
         $where: function () {
             var currentDate = new Date();

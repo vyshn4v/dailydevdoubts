@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.followUnfollowUser = exports.uploadImage = exports.getProfile = exports.manageUser = exports.getAllUsers = void 0;
+exports.getFollowedUsers = exports.followUnfollowUser = exports.uploadImage = exports.getProfile = exports.manageUser = exports.getAllUsers = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const express_async_handler_1 = __importDefault(require("express-async-handler"));
 const user_1 = __importDefault(require("../models/user"));
@@ -88,6 +88,53 @@ exports.getProfile = (0, express_async_handler_1.default)((req, res) => __awaite
                 as: "answers"
             }
         },
+        {
+            $lookup: {
+                from: "orders",
+                localField: "plan",
+                foreignField: "_id",
+                as: "orders",
+            },
+        },
+        {
+            $unwind: {
+                path: "$orders",
+                preserveNullAndEmptyArrays: true,
+            },
+        },
+        {
+            $lookup: {
+                from: "plans",
+                let: { planId: "$orders.plan" },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: { $eq: ["$_id", "$$planId"] },
+                        },
+                    },
+                    {
+                        $addFields: {
+                            expired_date: "$orders.expired_date",
+                        },
+                    },
+                ],
+                as: "orders.plan",
+            },
+        },
+        {
+            $unwind: {
+                path: "$plan",
+                preserveNullAndEmptyArrays: true,
+            },
+        },
+        // {
+        //     $group: {
+        //         _id: "$_id",
+        //         questions: { $first: "$questions" },
+        //         answers: { $first: "$answers" },
+        //         plan: { $push: "$plan" },
+        //     },
+        // }
     ]);
     const editAnswerRequests = yield answerRequest_1.default.find({ user: _id, isApprove: false }).populate('edited_by', '-password');
     const followers = yield user_1.default.find({ following_user: { $in: [_id] } });
@@ -110,7 +157,16 @@ exports.followUnfollowUser = (0, express_async_handler_1.default)((req, res) => 
     if (!user_id || !_id) {
         res.status(400).json({ status: false, message: "params missing" });
     }
-    const query = follow ? { $addToSet: { following_user: user_id } } : { $pull: { following_user: user_id } };
+    console.log('follow', follow);
+    const query = follow ? { $addToSet: { following_user: new mongoose_1.default.Types.ObjectId(String(user_id)) } } : { $pull: { following_user: new mongoose_1.default.Types.ObjectId(String(user_id)) } };
     const User = yield user_1.default.findByIdAndUpdate(_id, query, { new: true });
     res.json({ status: true, data: User });
+}));
+exports.getFollowedUsers = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { _id } = req.user;
+    if (!_id) {
+        res.status(400).json({ status: false, message: "params missing" });
+    }
+    const Users = yield user_1.default.findById(_id).populate('following_user');
+    res.json({ status: true, data: Users === null || Users === void 0 ? void 0 : Users.following_user });
 }));

@@ -24,7 +24,11 @@ declare global {
 }
 global.logger = logger
 const port = process.env.port || 3000
-dbConnection()
+dbConnection().then(() => {
+    console.log('db connected successfully');
+}).catch(() => {
+    console.log('db connected successfully');
+})
 initializeSocket(server)
 verifyBadge()
 function jsonReviver(key: any, value: any) {
@@ -52,6 +56,12 @@ app.use("/api/advertisement", verifyUserToken, advertiseMent)
 
 app.use(errorHandler)
 
-server.listen(port, () => {
-    console.log('server connected to ' + port);
+const url = server.listen(port, () => {
+    const address = url.address();
+    if (address && typeof address !== 'string') {
+        const { address: host, port } = address;
+
+        console.log(`Server listening at http://[${host}]:${port}`);
+        console.log(`Server listening at http://localhost:${port}`);
+    }
 })

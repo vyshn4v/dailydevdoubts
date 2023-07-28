@@ -9,13 +9,14 @@ const user_schema = new mongoose_1.Schema({
     name: { type: String, require: true },
     email: { type: String, require: true },
     phone: { type: Number },
+    plan: { type: mongoose_1.Schema.Types.ObjectId, ref: "orders", default: null },
     profile_image: { type: String, default: "https://img.freepik.com/free-icon/user_318-159711.jpg" },
     password: { type: String, require: true },
     isBanned: { type: Boolean, default: false },
     badges: [{ type: badge_schema }],
     reputation: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
-    following_user: Array,
+    following_user: [{ type: mongoose_1.Schema.Types.ObjectId, ref: "users" }],
     isSignupWithGoogle: { type: Boolean, default: false }
 }, { timestamps: true });
 const user = (0, mongoose_1.model)('users', user_schema);

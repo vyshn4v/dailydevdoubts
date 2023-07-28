@@ -20,12 +20,30 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const user_1 = __importDefault(require("../models/user"));
 const reportedQuestions_1 = __importDefault(require("../models/reportedQuestions"));
 const bookmarkedQuestions_1 = __importDefault(require("../models/bookmarkedQuestions"));
+const getDailyActivity_1 = require("../helpers/getDailyActivity");
+const socket_1 = require("../helpers/socket");
+const NOTIFICATION = "notification";
 exports.AddQuestion = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { title, html, tags } = req.body;
-    const { _id } = req.user;
+    const { _id, plan } = req.user;
+    const dailyActivity = yield (0, getDailyActivity_1.getDailyactivity)(_id);
+    console.log('plan', plan);
+    console.log('dailyActivity', dailyActivity);
     if (!title || !html || !tags.length || !_id) {
         res.status(400).json({ status: false, message: "params missing" });
         throw new Error('params missing ');
+    }
+    if (!plan && dailyActivity.totalQuestions >= 1) {
+        res.status(400).json({ status: false, message: "Please upgrade your plan" });
+        throw new Error('Please upgrade your plan');
+    }
+    if (plan && new Date(plan.expired_date) < new Date()) {
+        res.status(400).json({ status: false, message: "Plan expired please update plan" });
+        throw new Error('Plan expired please update plan');
+    }
+    if (plan && dailyActivity.totalQuestions >= plan.plan.totalQuestions) {
+        res.status(400).json({ status: false, message: "Daily Quota limit exceeded please add question tommorow or upgrade plan" });
+        throw new Error('Daily Quota limit exceeded');
     }
     const sanitizedHtml = (0, sanitize_html_1.default)(String(html).replace(/\"/g, "'"));
     const question = new question_1.default({
@@ -35,6 +53,7 @@ exports.AddQuestion = (0, express_async_handler_1.default)((req, res) => __await
         tags
     });
     yield question.save();
+    yield (0, getDailyActivity_1.updateDailyQuestionLimit)(dailyActivity._id);
     res.json({ status: true, data: question });
 }));
 exports.getAllQuestion = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -53,14 +72,20 @@ exports.getAllQuestion = (0, express_async_handler_1.default)((req, res) => __aw
         res.status(400).json({ status: true, message: "params not matched" });
         throw new Error("params not matched");
     }
-    const allQuestions = yield question_1.default.find((req === null || req === void 0 ? void 0 : req.admin) ? { title: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } } : { isApprove: true, title: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers');
+    const allQuestions = yield question_1.default.find((req === null || req === void 0 ? void 0 : req.admin) ? { $or: [
+            { title: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } },
+            { tags: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } },
+        ], } : { isApprove: true, $or: [
+            { title: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } },
+            { tags: { $regex: search !== null && search !== void 0 ? search : "", $options: "i" } },
+        ], }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers');
     res.json({ status: true, data: allQuestions });
 }));
 exports.getQuestion = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { question_id } = req.query;
     let searchParams = null;
     if (question_id) {
-        searchParams = { _id: new mongoose_1.default.Types.ObjectId(String(question_id)), isApprove: true };
+        searchParams = { _id: new mongoose_1.default.Types.ObjectId(String(question_id)) };
         const questionExisted = yield question_1.default.findByIdAndUpdate(searchParams, { $inc: { views: 1 } });
         if (!questionExisted) {
             res.status(404).json({ status: false, message: "question not found" });
@@ -172,6 +197,8 @@ exports.approveQuestion = (0, express_async_handler_1.default)((req, res) => __a
         return res.status(400).json({ status: false, message: "Params missing" });
     }
     const allQuestions = yield question_1.default.findOneAndUpdate({ _id: id }, { isApprove }, { new: true }).populate('user');
+    // let socketInstance=getSocketIO()
+    // socketInstance?.to(String(allQuestions?.user?._id)).emit(NOTIFICATION, {message:`Your question is ${Boolean(isApprove) ? "approved" : "rejected"} your question`});
     res.json({ status: true, data: allQuestions });
 }));
 exports.voteQuestion = (0, express_async_handler_1.default)((req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -212,6 +239,8 @@ exports.voteQuestion = (0, express_async_handler_1.default)((req, res) => __awai
         }
         yield User.save();
     }
+    let socketInstance = (0, socket_1.getSocketIO)();
+    socketInstance === null || socketInstance === void 0 ? void 0 : socketInstance.to(String(questioExisted === null || questioExisted === void 0 ? void 0 : questioExisted.user)).emit(NOTIFICATION, { message: `someone ${Boolean(upvote) ? "up vote" : "down vote"} your question` });
     logger.info(`user ${_id} is successfully ${Boolean(upvote) ? "up vote" : "down vote"} question ${question_id}`);
     res.json({ status: true, data: updatedQuestion });
 }));

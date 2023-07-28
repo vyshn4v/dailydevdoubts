@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JWT_REFRESH_TOKEN_EXPIRED_TIME = exports.JWT_ACCESS_TOKEN_EXPIRED_TIME = exports.CLOUDINARY_API_SECRET = exports.CLOUDINARY_API_KEY = exports.CLOUDINARY_CLOUD_NAME = exports.ADMIN_PASSWORD = exports.ADMIN_EMAIL = exports.GOOGLE_CLIENT_ID = exports.TWILIO_SERVICE_SID = exports.JWT_REFRESH_SECRET_KEY = exports.JWT_SECRET_KEY = exports.TWILIO_PHONE_NUMBER = exports.TWILIO_AUTH_TOKEN = exports.TWILIO_ACCOUNT_SID = exports.NODE_ENV = exports.MONGODB_URL = exports.BCRYPT_SALT_ROUND = void 0;
+exports.RAZOR_PAY_KEY_SECRET = exports.RAZOR_PAY_KEY_ID = exports.JWT_REFRESH_TOKEN_EXPIRED_TIME = exports.JWT_ACCESS_TOKEN_EXPIRED_TIME = exports.CLOUDINARY_API_SECRET = exports.CLOUDINARY_API_KEY = exports.CLOUDINARY_CLOUD_NAME = exports.ADMIN_PASSWORD = exports.ADMIN_EMAIL = exports.GOOGLE_CLIENT_ID = exports.TWILIO_SERVICE_SID = exports.JWT_REFRESH_SECRET_KEY = exports.JWT_SECRET_KEY = exports.TWILIO_PHONE_NUMBER = exports.TWILIO_AUTH_TOKEN = exports.TWILIO_ACCOUNT_SID = exports.NODE_ENV = exports.MONGODB_URL = exports.BCRYPT_SALT_ROUND = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const BCRYPT_SALT_ROUND = Number(process.env.BCRYPT_SALT_ROUND);
@@ -40,3 +40,7 @@ const JWT_ACCESS_TOKEN_EXPIRED_TIME = String(process.env.JWT_ACCESS_TOKEN_EXPIRE
 exports.JWT_ACCESS_TOKEN_EXPIRED_TIME = JWT_ACCESS_TOKEN_EXPIRED_TIME;
 const JWT_REFRESH_TOKEN_EXPIRED_TIME = String(process.env.JWT_REFRESH_TOKEN_EXPIRED_TIME);
 exports.JWT_REFRESH_TOKEN_EXPIRED_TIME = JWT_REFRESH_TOKEN_EXPIRED_TIME;
+const RAZOR_PAY_KEY_ID = String(process.env.RAZOR_PAY_KEY_ID);
+exports.RAZOR_PAY_KEY_ID = RAZOR_PAY_KEY_ID;
+const RAZOR_PAY_KEY_SECRET = String(process.env.RAZOR_PAY_KEY_SECRET);
+exports.RAZOR_PAY_KEY_SECRET = RAZOR_PAY_KEY_SECRET;

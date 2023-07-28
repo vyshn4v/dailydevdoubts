@@ -1,28 +1,15 @@
-# Stage 1: Build the application
-FROM node:lts-buster-slim AS build
+FROM node
 
-# Create app directory
-WORKDIR /usr/src/app
+RUN mkdir -p /home/app
 
-COPY package.json /usr/src/app/package.json
-COPY package-lock.json /usr/src/app/package-lock.json
-RUN npm ci
+WORKDIR /home/app
 
-# Copy TypeScript source code
-COPY . /usr/src/app
+COPY . /home/app/
 
-# Build the TypeScript code
+RUN npm install
+
 RUN npm run build
-
-# Stage 2: Run the application
-FROM node:lts-buster-slim AS production
-
-# Create app directory
-WORKDIR /usr/src/app
-
-# Copy the built JavaScript code from the previous stage
-COPY --from=build /usr/src/app/build /usr/src/app
 
 EXPOSE 3000
 
-CMD [ "node", "index.js" ]
+ENTRYPOINT ["node", "build/app.js"]

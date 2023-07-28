@@ -18,14 +18,26 @@ const questionRoute_1 = __importDefault(require("./routes/questionRoute"));
 const answerRoute_1 = __importDefault(require("./routes/answerRoute"));
 const chatRouter_1 = __importDefault(require("./routes/chatRouter"));
 const dashboardRoute_1 = __importDefault(require("./routes/dashboardRoute"));
+const planRouter_1 = __importDefault(require("./routes/planRouter"));
 const badge_1 = __importDefault(require("./helpers/badge"));
 const socket_1 = require("./helpers/socket");
+const dailyActivity_1 = __importDefault(require("./routes/dailyActivity"));
+const advertisMent_1 = __importDefault(require("./routes/advertisMent"));
 global.logger = quick_logger_1.default;
 const port = process.env.port || 3000;
 (0, dbConnection_1.default)();
 (0, socket_1.initializeSocket)(server);
 (0, badge_1.default)();
-app.use(express_1.default.json());
+function jsonReviver(key, value) {
+    if (typeof value === 'string' && value.toLowerCase() === 'false') {
+        return false;
+    }
+    if (typeof value === 'string' && value.toLowerCase() === 'true') {
+        return true;
+    }
+    return value;
+}
+app.use(express_1.default.json({ reviver: jsonReviver }));
 app.use((0, cors_1.default)({
     origin: "*"
 }));
@@ -35,6 +47,9 @@ app.use("/api/question", userTokenverifivation_1.verifyUserToken, questionRoute_
 app.use("/api/answer", userTokenverifivation_1.verifyUserToken, answerRoute_1.default);
 app.use("/api/chat", userTokenverifivation_1.verifyUserToken, chatRouter_1.default);
 app.use("/api/dashboard", userTokenverifivation_1.verifyUserToken, dashboardRoute_1.default);
+app.use("/api/plans", userTokenverifivation_1.verifyUserToken, planRouter_1.default);
+app.use("/api/daily-activity", userTokenverifivation_1.verifyUserToken, dailyActivity_1.default);
+app.use("/api/advertisement", userTokenverifivation_1.verifyUserToken, advertisMent_1.default);
 app.use(errorHandler_1.default);
 server.listen(port, () => {
     console.log('server connected to ' + port);

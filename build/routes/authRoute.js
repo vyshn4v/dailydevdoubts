@@ -10,6 +10,8 @@ const express_joi_validation_1 = require("express-joi-validation");
 const validator = (0, express_joi_validation_1.createValidator)();
 const validation_1 = require("../helpers/validation");
 authRouter.get('/login', validator.query(validation_1.userLoginSchema), Auth_1.userLogin);
+authRouter.get('/otp', Auth_1.ResendOtpToPhone);
+authRouter.put('/change-password', Auth_1.changePassword);
 authRouter.get('/admin-login', validator.query(validation_1.userLoginSchema), Auth_1.adminLogin);
 authRouter.post("/signup", validator.body(validation_1.userSignupSchema), Auth_1.userSignup);
 authRouter.post("/signup-with-google", Auth_1.signupWithGmail);

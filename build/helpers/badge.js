@@ -16,7 +16,7 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const node_cron_1 = __importDefault(require("node-cron"));
 const user_1 = __importDefault(require("../models/user"));
 const question_1 = __importDefault(require("../models/question"));
-const leadboard_1 = __importDefault(require("../models/leadboard"));
+const leadBoard_1 = __importDefault(require("../models/leadBoard"));
 const badges = [
     { badge: "Bronze", count: 0 },
     { badge: "Silver", count: 0 },
@@ -59,11 +59,11 @@ function badge() {
             currentDate.setHours(0, 0, 0, 0); // Set the time to 12:00:00 am of the current day
             const nextDay = new Date(currentDate);
             nextDay.setDate(nextDay.getDate() + 1);
-            const leadbordExist = yield leadboard_1.default.exists({
+            const leadbordExist = yield leadBoard_1.default.exists({
                 createdAt: { $gte: currentDate, $lt: nextDay },
             });
             if (!leadbordExist) {
-                const leadBoard = new leadboard_1.default({
+                const leadBoard = new leadBoard_1.default({
                     users: topTenUsers
                 });
                 yield leadBoard.save();

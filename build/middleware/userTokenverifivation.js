@@ -34,7 +34,13 @@ exports.verifyUserToken = (0, express_async_handler_1.default)((req, res, next) 
             req.admin = decode === null || decode === void 0 ? void 0 : decode.email;
             return next();
         }
-        const User = yield user_1.default.findById({ _id: decode === null || decode === void 0 ? void 0 : decode._id });
+        const User = yield user_1.default.findById({ _id: decode === null || decode === void 0 ? void 0 : decode._id }).populate('plan').populate({
+            path: 'plan',
+            populate: {
+                path: 'plan',
+                model: 'plans',
+            },
+        });
         if (User) {
             if (User.isBanned) {
                 res.json({

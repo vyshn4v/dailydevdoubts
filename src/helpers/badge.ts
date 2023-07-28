@@ -6,7 +6,7 @@ import mongoose from 'mongoose'
 import cron from 'node-cron'
 import user from '../models/user';
 import Question from '../models/question';
-import Leadboard from '../models/leadboard';
+import Leadboard from '../models/leadBoard';
 
 const badges = [
     { badge: "Bronze", count: 0 },

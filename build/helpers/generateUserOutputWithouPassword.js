@@ -11,6 +11,7 @@ function generateUserOutputWithouPasswordtsts(user, token, refreshToken, Bookmar
         "profile_image": user.profile_image,
         "following_user": user.following_user,
         "isSignupWithGoogle": user.isSignupWithGoogle,
+        "plan": user.plan,
         "_id": user._id,
         "badges": user.badges,
         "createdAt": user.createdAt,
