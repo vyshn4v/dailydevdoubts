@@ -48,14 +48,14 @@ jobs:
         with:
           context: ./nginx
           push: true
-          tags: $DOCKER_HUB_NAME/nginx_image:latest
+          tags: vyshnavpc/nginx_image:latest
 
       - name: Build and Push Node.js image
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          tags: $DOCKER_HUB_NAME/nodejs_image:latest
+          tags: vyshnavpc/nodejs_image:latest
 
       - name: Create custom bridge network
         run: docker network create my_app_network
