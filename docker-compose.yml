@@ -15,7 +15,7 @@ services:
   nginx:
     build:
       context: ./nginx
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     image: vyshnavpc/nginx_image:latest
     ports:
       - "80:80"
