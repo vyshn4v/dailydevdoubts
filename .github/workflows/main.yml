@@ -48,4 +48,4 @@ jobs:
           docker-compose push
       - name : Push Image
         run : |
-          docker push dailydevdoubts_backend:latest
+          docker push backend:latest
