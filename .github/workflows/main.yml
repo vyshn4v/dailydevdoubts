@@ -45,7 +45,7 @@ jobs:
       - name : Build and Push Image
         run : |
           docker-compose build
-          docker-compose push
       - name : Push Image
         run : |
-          docker push vyshnavpc/dailydevdoubts_backend:latest
+          docker tag dailydevdoubts_backend:latest $DOCKER_HUB_NAME/dailydevdoubts_backend:latest
+          docker push $DOCKER_HUB_NAME/dailydevdoubts_backend:latest
