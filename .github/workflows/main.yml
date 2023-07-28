@@ -46,3 +46,6 @@ jobs:
         run : |
           docker-compose build
           docker-compose push
+      - name : Push Image
+        run : |
+          docker push dailydevdoubts_backend:latest

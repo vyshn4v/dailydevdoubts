@@ -15,5 +15,5 @@ RUN npm run build
 
 EXPOSE 3000
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
 ENTRYPOINT ["node", "build/app.js"]
