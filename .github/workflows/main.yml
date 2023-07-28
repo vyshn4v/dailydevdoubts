@@ -1,0 +1,43 @@
+name : Public docker image
+on:
+  push:
+    branches : ['master']
+    
+jobs:
+  push_to_registry :
+    name : Push Docker Image To Docker Hub
+    runs-on : ubuntu-latest 
+    steps : 
+      - name : Check out the repo
+        uses : actions/checkout@v3
+       
+      - name: Create .env file
+        run: |
+          echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> .env
+          echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> .env
+          echo "BCRYPT_SALT_ROUND=${{ secrets.BCRYPT_SALT_ROUND }}" >> .env
+          echo "MONGODB_URL=${{ secrets.MONGODB_URL }}" >> .env
+          echo "NODE_ENV=${{ secrets.NODE_ENV }}" >> .env
+          echo "TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}" >> .env
+          echo "TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}" >> .env
+          echo "TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}" >> .env
+          echo "TWILIO_SERVICE_SID=${{ secrets.TWILIO_SERVICE_SID }}" >> .env
+          echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
+          echo "JWT_REFRESH_SECRET_KEY=${{ secrets.JWT_REFRESH_SECRET_KEY }}" >> .env
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env
+          echo "CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}" >> .env
+          echo "CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}" >> .env
+          echo "CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}" >> .env
+          echo "JWT_ACCESS_TOKEN_EXPIRED_TIME=${{ secrets.JWT_ACCESS_TOKEN_EXPIRED_TIME }}" >> .env
+          echo "JWT_REFRESH_TOKEN_EXPIRED_TIME=${{ secrets.JWT_REFRESH_TOKEN_EXPIRED_TIME }}" >> .env
+          echo "RAZOR_PAY_KEY_ID=${{ secrets.RAZOR_PAY_KEY_ID }}" >> .env
+          echo "RAZOR_PAY_KEY_SECRET=${{ secrets.RAZOR_PAY_KEY_SECRET }}" >> .env
+        
+      - name : Log In To Docker Hub
+        run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
+      
+      - name : Build app
+        run : |
+          docker build -t ${{ secrets.DOCKER_HUB_NAME }}/backend:latest .
+          docker push ${{ secrets.DOCKER_HUB_NAME }}/backend:latest
