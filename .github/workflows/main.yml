@@ -40,4 +40,4 @@ jobs:
       - name : Build app
         run : |
           docker build -t ${{ secrets.DOCKER_HUB_NAME }}/backend:latest .
-          docker run -d -p 3000:3000 --name ${{ secrets.DOCKER_HUB_NAME }} ${{ secrets.DOCKER_HUB_NAME }}/backend:latest
+          docker run -d -p 3000:3000 --name ${{ secrets.DOCKER_HUB_NAME }} backend:latest
