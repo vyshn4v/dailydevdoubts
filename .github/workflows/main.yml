@@ -40,13 +40,12 @@ jobs:
         
       - name : Log In To Docker Hub
         run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name : Build dockerapp
-        run : docker-compose up --build 
 
       - name : Build app
         run : docker build -t $DOCKER_HUB_NAME/backend:latest .
       
       - name : Push app to docker hub
         run : docker push ${{ secrets.DOCKER_HUB_NAME }}/backend:latest
-      - name: Run Docker Container
-        run: docker run -d -p 3000:80 --name $DOCKER_HUB_NAME $DOCKER_HUB_NAME/backend:latest
+
+      - name : Build dockerapp
+        run : docker-compose up --build 
