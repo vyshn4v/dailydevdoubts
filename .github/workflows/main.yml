@@ -48,4 +48,4 @@ jobs:
           docker-compose push
       - name : Push Image
         run : |
-          docker push backend:latest
+          docker push vyshnavpc/dailydevdoubts_backend:latest
