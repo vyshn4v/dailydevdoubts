@@ -42,15 +42,47 @@ jobs:
         run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
       
       
-      - name : Build and Push nodejs
-        run : |
-          docker-compose build nodejs
-      - name : Push Image
-        run : |
-         docker push $DOCKER_HUB_NAME/nodejs_image:latest
-      - name : Build and Push nginx
-        run : |
-          docker-compose build nginx
-      - name : Push Image
-        run : |
-         docker push $DOCKER_HUB_NAME/nginx_image:latest
+
+      - name: Build and Push NGINX image
+        uses: docker/build-push-action@v2
+        with:
+          context: ./nginx
+          push: true
+          tags: $DOCKER_HUB_NAME/nginx_image:latest
+
+      - name: Build and Push Node.js image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: $DOCKER_HUB_NAME/nodejs_image:latest
+
+      - name: Create custom bridge network
+        run: docker network create my_app_network
+
+      - name: Run NGINX container
+        run: |
+          docker run -d --name nginx_container -p 80:80 --network my_app_network $DOCKER_HUB_NAME/nginx_image:latest
+
+      - name: Run Node.js container
+        run: |
+          docker run -d --name nodejs_container -p 3000:3000 --network my_app_network $DOCKER_HUB_NAME/nodejs_image:latest
+
+
+
+
+
+
+
+      # - name : Build and Push nodejs
+      #   run : |
+      #     docker-compose build nodejs
+      # - name : Push Image
+      #   run : |
+      #    docker push $DOCKER_HUB_NAME/nodejs_image:latest
+      # - name : Build and Push nginx
+      #   run : |
+      #     docker-compose build nginx
+      # - name : Push Image
+      #   run : |
+      #    docker push $DOCKER_HUB_NAME/nginx_image:latest
