@@ -37,30 +37,12 @@ jobs:
           echo "JWT_REFRESH_TOKEN_EXPIRED_TIME=${{ secrets.JWT_REFRESH_TOKEN_EXPIRED_TIME }}" >> .env
           echo "RAZOR_PAY_KEY_ID=${{ secrets.RAZOR_PAY_KEY_ID }}" >> .env
           echo "RAZOR_PAY_KEY_SECRET=${{ secrets.RAZOR_PAY_KEY_SECRET }}" >> .env
-       
-      - name: Install Docker and Docker Compose
-        run: |
-          # Install Docker
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sudo sh get-docker.sh
-          sudo usermod -aG docker $USER
-
-          # Install Docker Compose
-          sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-
 
       - name : Log In To Docker Hub
         run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
       
-      - name : Build image
-        run : docker-compose build 
       
-      - name : Build app
-        run : docker build -t $DOCKER_HUB_NAME/backend:latest .
-
-      - name : Push app to docker hub
-        run : docker push ${{ secrets.DOCKER_HUB_NAME }}/backend:latest
-      
-      - name: Run Docker Container
-        run: docker run -d -p 80:80 --name $DOCKER_HUB_NAME $DOCKER_HUB_NAME/backend:latest
+      - name : Log In To Docker Hub
+        run : |
+          docker-compose build
+          docker-compose push
