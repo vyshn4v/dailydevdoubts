@@ -42,10 +42,15 @@ jobs:
         run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
       
       
-      - name : Build and Push Image
+      - name : Build and Push nodejs
         run : |
-          docker-compose build
+          docker-compose build nodejs
       - name : Push Image
         run : |
-          docker tag dailydevdoubts_backend:latest $DOCKER_HUB_NAME/dailydevdoubts_backend:latest
-          docker push $DOCKER_HUB_NAME/dailydevdoubts_backend:latest
+         docker push $DOCKER_HUB_NAME/nodejs_image:latest
+      - name : Build and Push nginx
+        run : |
+          docker-compose build nginx
+      - name : Push Image
+        run : |
+         docker push $DOCKER_HUB_NAME/nginx_image:latest
