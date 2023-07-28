@@ -16,7 +16,7 @@ COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
-RUN node build/app.js
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 
