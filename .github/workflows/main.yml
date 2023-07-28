@@ -46,4 +46,4 @@ jobs:
       - name : Push app to docker hub
         run : docker push ${{ secrets.DOCKER_HUB_NAME }}/backend:latest
       - name: Run Docker Container
-        run: docker run -d -p 3000:3000 --name $DOCKER_HUB_NAME $DOCKER_HUB_NAME/backend:latest
+        run: docker run -d -p 80:80 --name $DOCKER_HUB_NAME $DOCKER_HUB_NAME/backend:latest
