@@ -10,7 +10,11 @@ jobs:
     steps : 
       - name : Check out the repo
         uses : actions/checkout@v3
-       
+
+      - name: Set Docker Image and Container Name
+        run: |
+          echo "DOCKER_HUB_NAME=${{ secrets.DOCKER_HUB_NAME }}" >> $GITHUB_ENV
+
       - name: Create .env file
         run: |
           echo "ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> .env
@@ -38,6 +42,7 @@ jobs:
         run : docker login -u ${{ secrets.DOCKER_HUB_NAME }} -p ${{ secrets.DOCKER_HUB_PASSWORD }}
       
       - name : Build app
-        run : |
-          docker build -t ${{ secrets.DOCKER_HUB_NAME }}/backend:latest .
-          docker run -d -p 3000:3000 --name ${{ secrets.DOCKER_HUB_NAME }} backend:latest
+        run : docker build -t $DOCKER_HUB_NAME/backend:latest .
+          
+      - name: Run Docker Container
+        run: docker run -d -p 3000:3000 --name $DOCKER_HUB_NAME $DOCKER_HUB_NAME/backend:latest
