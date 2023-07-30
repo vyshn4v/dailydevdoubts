@@ -1,33 +1,22 @@
-# Stage 1: Build the Node.js application
-FROM node AS builder
+FROM node
 
-WORKDIR /app
+RUN mkdir -p /home/app
 
-COPY package.json package-lock.json ./
+WORKDIR /home/app
+
+COPY . /home/app/
+
 RUN npm install
 
-COPY . .
 RUN npm run build
-
-# Stage 2: Create the final image with NGINX
-FROM nginx:alpine
-
-COPY --from=builder /app/build /usr/share/nginx/html
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-
-
+ENTRYPOINT ["node", "build/app.js"]
 
 # FROM node
 
-# RUN apt-get update && \
-#     apt-get install -y nginx
-
-# RUN mkdir -p /home/app
+# RUN mkdir -p /home/app/ chown -R node:node /home/app
 
 # WORKDIR /home/app
 
@@ -37,7 +26,8 @@ CMD ["nginx", "-g", "daemon off;"]
 
 # RUN npm run build
 
+# COPY --chown=node:node . .
+
 # EXPOSE 3000
-# EXPOSE 80
 
 # ENTRYPOINT ["node", "build/app.js"]

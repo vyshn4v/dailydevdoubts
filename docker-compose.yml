@@ -1,27 +1,86 @@
-version: '3.3'
+# version: '3.8'
+
+# services:
+#   backend:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     ports:
+#       - "4500:4500"
+#     restart: always
+#     networks:
+#       - app-network
+
+#   nginx:
+#     image: nginx:alpine
+#     ports:
+#       - "80:80"
+#     volumes:
+#       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+#     depends_on:
+#       - backend
+#     restart: always
+#     networks:
+#       - app-network
+
+#   # certbot:
+#   #   image: certbot/certbot
+#   #   container_name: certbot
+#   #   volumes:
+#   #     - ${PWD}/certbot-etc:/etc/letsencrypt
+#   #     - ${PWD}/certbot-var:/var/lib/letsencrypt
+#   #   depends_on:
+#   #     - nginx
+#   #   command: certonly --email vyshnavpcnaravoor@gmail.com --agree-tos --no-eff-email -d backend.dailydevdoubts.site  -d www.backend.dailydevdoubts.site
+
+# networks:
+#   app-network:
+
+
+version: '3'
 
 services:
   nodejs:
     build:
       context: .
       dockerfile: Dockerfile
-    image: vyshnavpc/nodejs_image:latest
     ports:
-      - "4500:4500"
+      - "3000:3000"
+    image: nodejs
+    container_name: nodejs
     restart: always
     networks:
       - app-network
 
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: dockerfile
-    image: vyshnavpc/nginx_image:latest
+  webserver:
+    image: nginx:mainline-alpine
+    container_name: webserver
+    restart: unless-stopped
     ports:
       - "80:80"
-    restart: always
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+    depends_on:
+      - nodejs
     networks:
       - app-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+    depends_on:
+      - webserver
+    command: certonly --email vyshnavpcnaravoor@gmail.com --agree-tos --no-eff-email --staging -d backend.dailydevdoubts.site  -d www.backend.dailydevdoubts.site 
+
+volumes:
+  certbot-etc:
+  certbot-var:
 
 networks:
   app-network:
+    driver: bridge
