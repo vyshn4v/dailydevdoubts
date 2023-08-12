@@ -67,13 +67,10 @@ export const getAllQuestion = asyncHandler(async (req: CustomRequest, res: Respo
     }
 
 
-    const allQuestions = await Question.find(req?.admin ? { $or: [
+    const allQuestions = await Question.find( { $or: [
         { title: { $regex: search??"", $options: "i" } },
         { tags: { $regex: search??"", $options: "i" } },
-      ], } : { isApprove: true, $or: [
-        { title: { $regex: search??"", $options: "i" } },
-        { tags: { $regex: search??"", $options: "i" } },
-      ], }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers')
+      ] }).sort(sorting).skip(starting).limit(limitDataTo).populate('user', "-password").populate('answers')
     res.json({ status: true, data: allQuestions })
 })
 export const getQuestion = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {

@@ -13,16 +13,23 @@ export const dashBoardData = asyncHandler(async (req: CustomRequest, res: Respon
         })
         throw ('Unauthorized user')
     }
-    const totalUsersInMonth = await user.find({
-        $where: function () {
-            var currentDate = new Date();
-            var lastMonthDate = new Date(currentDate.setMonth(currentDate.getMonth()))
-            return this.createdAt.getFullYear() === lastMonthDate.getFullYear()
-                && this.createdAt.getMonth() === lastMonthDate.getMonth();
-        }
-    }).count()
+    // const totalUsersInMonth = await user.find({
+    //     $where: function () {
+    //         var currentDate = new Date();
+    //         var lastMonthDate = new Date(currentDate.setMonth(currentDate.getMonth()))
+    //         return this.createdAt.getFullYear() === lastMonthDate.getFullYear()
+    //             && this.createdAt.getMonth() === lastMonthDate.getMonth();
+    //     }
+    // }).count()
+  
     const currentDate = new Date();
     const lastMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
+    const totalUsersInMonth = await user.countDocuments({
+        createdAt: {
+            $gte: lastMonthDate,
+            $lte: currentDate,
+        },
+    });
     const totalGroupInMonth = await Chat.countDocuments({
         createdAt: {
             $gte: lastMonthDate,
@@ -48,7 +55,7 @@ export const dashBoardData = asyncHandler(async (req: CustomRequest, res: Respon
     const YEAR_BEFORE = new Date(TODAY)
     YEAR_BEFORE.setFullYear(YEAR_BEFORE.getFullYear() - 1)
     const MONTHS_ARRAY = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    const pipeLine:any = [{
+    const pipeLine: any = [{
         $match: {
             createdAt: { $gte: YEAR_BEFORE, $lte: TODAY }
         }
@@ -164,13 +171,8 @@ export const dashBoardData = asyncHandler(async (req: CustomRequest, res: Respon
     const questionChart = await Questions.aggregate(pipeLine)
     const userChart = await user.aggregate(pipeLine)
     const chatChart = await Chat.aggregate([
-        {
-            $match: {
-                isGroupChat: true
-            }
-        },
         ...pipeLine
-    ]as any)
+    ] as any)
 
     const data = {
         totalUsersInMonth,
@@ -180,5 +182,5 @@ export const dashBoardData = asyncHandler(async (req: CustomRequest, res: Respon
         userChart,
         chatChart
     }
-    res.json({status:true,data})
+    res.json({ status: true, data })
 })

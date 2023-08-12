@@ -60,7 +60,7 @@ export const userSignup = asyncHandler(async (req: Request, res: Response) => {
     await sendOtpUsingTwilio(User.phone, "SIGNUP")
     const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
     const refreshToken = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
-    const Bookmark = await BookmarkedQuestions.findById({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })
+    const Bookmark = { Bookmarks: [] }
     res.json({
         status: true,
         data: generateUserOutputWithouPasswordtsts(User, token, refreshToken, Bookmark?.Bookmarks)
@@ -189,7 +189,7 @@ export const ResendOtpUser = asyncHandler(async (req: CustomRequest, res: Respon
 })
 export const changePassword = asyncHandler(async (req: CustomRequest, res: Response) => {
     const { otp, password, phoneNumber } = req.query
-console.log(req.query);
+    console.log(req.query);
 
     if (!otp || !password || !phoneNumber) {
         res.status(400).json({
@@ -200,7 +200,7 @@ console.log(req.query);
     const OtpStatus: any = await verifyOtpUsingTwilio(Number(phoneNumber), String(otp))
     if (OtpStatus && OtpStatus.status === "approved") {
         const hashedPassword: string = await hashPassword(String(password))
-        await user.findOneAndUpdate({ phone:phoneNumber }, { password:hashedPassword })
+        await user.findOneAndUpdate({ phone: phoneNumber }, { password: hashedPassword })
         res.json({
             status: true,
             data: OtpStatus.status
@@ -268,13 +268,13 @@ export const signupWithGmail = asyncHandler(async (req: CustomRequest, res: Resp
                 password: hashedPassword,
                 isVerified: payload.email_verified
             })
-            ;(await (await User.save()).populate('plan')).populate({
-                path: 'plan',
-                populate: {
+                ; (await (await User.save()).populate('plan')).populate({
                     path: 'plan',
-                    model: 'plans',
-                },
-            })
+                    populate: {
+                        path: 'plan',
+                        model: 'plans',
+                    },
+                })
             const token: string = await generateJwtToken({ _id: User._id }, JWT_ACCESS_TOKEN_EXPIRED_TIME)
             const refreshToken: string = await generateRefreshToken({ user: User._id }, JWT_REFRESH_TOKEN_EXPIRED_TIME)
             const Bookmark = await BookmarkedQuestions.findOne({ user: new Types.ObjectId(User._id) }, { _id: 1, Bookmarks: 1 })

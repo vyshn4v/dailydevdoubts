@@ -7,7 +7,7 @@ import { RAZOR_PAY_KEY_ID, RAZOR_PAY_KEY_SECRET } from "../config/envVariables";
 import Orders from "../models/orders";
 import user from "../models/user";
 export const getAllPlans = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
-    const plans = await Plans.find({ isActive: true })
+    const plans = await Plans.find(req.user?{ isActive: true }:{})
     res.json({ status: true, data: plans })
 })
 export const addPlans = asyncHandler(async (req: CustomRequest, res: Response): Promise<any> => {
